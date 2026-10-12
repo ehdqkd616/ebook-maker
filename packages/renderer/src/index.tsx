@@ -104,6 +104,13 @@ function BlockView({ block }: { block: Block }) {
         </blockquote>
       );
     case "image":
+      if (!block.data.src) {
+        return (
+          <div className={`${className} eb-image-empty`} style={style}>
+            <span>이미지</span>
+          </div>
+        );
+      }
       return <img className={className} style={{ ...style, objectFit: block.data.fit }} src={block.data.src} alt={block.data.alt} />;
     case "shape":
       return (
@@ -123,11 +130,30 @@ function BlockView({ block }: { block: Block }) {
       return <video className={className} style={style} src={block.data.src} controls />;
     case "link":
       return (
-        <a className={className} style={style} href={block.data.href} target="_blank" rel="noopener noreferrer">
+        <a className={className} style={style} href={safeHref(block.data.href)} target="_blank" rel="noopener noreferrer">
           {block.data.text}
         </a>
       );
+    case "toc":
+      return (
+        <ol className={className} style={style}>
+          {block.data.entries.length === 0 && <li className="eb-toc-empty">챕터를 추가하면 목차가 채워집니다.</li>}
+          {block.data.entries.map((e, i) => (
+            <li key={i}>
+              <span className="eb-toc-no">{String(i + 1).padStart(2, "0")}</span>
+              <span className="eb-toc-title">{e.title}</span>
+              <span className="eb-toc-dots" aria-hidden />
+              <span className="eb-toc-page">{e.page}</span>
+            </li>
+          ))}
+        </ol>
+      );
   }
+}
+
+/** 링크는 http(s)·mailto만 (javascript: 같은 주소 차단) */
+function safeHref(href: string) {
+  return /^(https?:|mailto:)/i.test(href.trim()) ? href.trim() : undefined;
 }
 
 function splitParagraphs(text: string) {

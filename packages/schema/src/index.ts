@@ -83,6 +83,12 @@ export const Block = z.discriminatedUnion("type", [
   z.object({ ...blockBase, type: z.literal("audio"), data: z.object({ src: z.string() }) }),
   z.object({ ...blockBase, type: z.literal("video"), data: z.object({ src: z.string() }) }),
   z.object({ ...blockBase, type: z.literal("link"), data: z.object({ text: z.string(), href: z.string() }) }),
+  // 목차: 챕터 시작 페이지에서 자동으로 채운다 (refreshToc)
+  z.object({
+    ...blockBase,
+    type: z.literal("toc"),
+    data: z.object({ entries: z.array(z.object({ title: z.string(), page: z.number().int().positive() })) }),
+  }),
 ]);
 export type Block = z.infer<typeof Block>;
 export type BlockType = Block["type"];
@@ -100,6 +106,7 @@ export const Book = z.object({
   id: z.string(),
   title: z.string().min(1),
   subtitle: z.string().optional(),
+  author: z.string().optional(),
   language: z.string(),
   bookType: BookType,
   size: BookSize,

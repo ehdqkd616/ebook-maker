@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SIZE_PRESETS } from "@ebook/schema";
+import { LAYOUT_IDS, SIZE_PRESETS } from "@ebook/schema";
 import { getLayout, placeBlocks } from "./index";
 
 const A4 = SIZE_PRESETS.A4;
@@ -22,7 +22,7 @@ describe("placeBlocks", () => {
     ).toThrow(/does not accept image/);
   });
 
-  it("throws for layouts that are not implemented yet", () => {
-    expect(() => getLayout("text-2col")).toThrow(/not implemented/);
+  it("defines every layout id in the schema", () => {
+    for (const id of LAYOUT_IDS) expect(getLayout(id).id).toBe(id);
   });
 });

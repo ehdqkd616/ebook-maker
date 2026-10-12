@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { PageFlip } from "page-flip";
+import { showsPageNumber } from "@ebook/layouts";
 import { PageRenderer } from "@ebook/renderer";
 import type { Book } from "@ebook/schema";
 
@@ -13,7 +14,8 @@ import type { Book } from "@ebook/schema";
 const TOOLBAR_HEIGHT = 56;
 const PADDING = 24;
 
-export function FlipbookViewer({ book }: { book: Book }) {
+export function FlipbookViewer({ book, backHref }: { book: Book; backHref?: string }) {
+  const rootRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const templateRef = useRef<HTMLDivElement>(null);
   const flipRef = useRef<PageFlip | null>(null);
@@ -22,6 +24,27 @@ export function FlipbookViewer({ book }: { book: Book }) {
   const [current, setCurrent] = useState(0);
   const { width, height } = book.size;
   const total = book.pages.length;
+  const chapters = useMemo(
+    () =>
+      book.pages.flatMap((p, i) => {
+        if (p.layoutId !== "chapter-opener") return [];
+        const t = p.blocks.find((b) => b.slot === "title" && b.type === "heading");
+        return t?.type === "heading" ? [{ index: i, title: t.data.text.replace(/\s*\n\s*/g, " ") }] : [];
+      }),
+    [book.pages],
+  );
+  const [fullscreen, setFullscreen] = useState(false);
+
+  useEffect(() => {
+    const onChange = () => setFullscreen(document.fullscreenElement === rootRef.current);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else void rootRef.current?.requestFullscreen?.();
+  };
 
   // 무대 크기 → 배율. 가로로 넓으면 두 쪽 펼침, 아니면 한 쪽.
   useEffect(() => {
@@ -99,13 +122,25 @@ export function FlipbookViewer({ book }: { book: Book }) {
   }, []);
 
   return (
-    <div className="flex h-dvh flex-col bg-neutral-800">
+    <div ref={rootRef} className="flex h-dvh flex-col bg-neutral-800">
       <div ref={stageRef} className="relative min-h-0 flex-1" style={{ padding: PADDING }} />
 
       <div
-        className="flex items-center justify-center gap-4 border-t border-neutral-700 bg-neutral-900 px-4 text-sm text-neutral-200"
+        className="flex items-center justify-center gap-2 border-t border-neutral-700 bg-neutral-900 px-3 text-sm text-neutral-200 sm:gap-4"
         style={{ height: TOOLBAR_HEIGHT }}
       >
+        {backHref && (
+          <a href={backHref} className="mr-auto rounded px-3 py-1.5 hover:bg-neutral-700">← 편집으로</a>
+        )}
+        <button
+          type="button"
+          onClick={() => flipRef.current?.flip(0)}
+          disabled={current === 0}
+          className="hidden rounded px-2 py-1.5 hover:bg-neutral-700 disabled:opacity-40 sm:inline"
+          aria-label="처음으로"
+        >
+          ⏮
+        </button>
         <button
           type="button"
           onClick={() => flipRef.current?.flipPrev()}
@@ -127,7 +162,32 @@ export function FlipbookViewer({ book }: { book: Book }) {
         >
           다음 →
         </button>
-        <span className="hidden truncate text-neutral-400 sm:inline">{book.title}</span>
+        <button
+          type="button"
+          onClick={() => flipRef.current?.flip(total - 1)}
+          disabled={current >= total - 1}
+          className="hidden rounded px-2 py-1.5 hover:bg-neutral-700 disabled:opacity-40 sm:inline"
+          aria-label="끝으로"
+        >
+          ⏭
+        </button>
+        {chapters.length > 0 && (
+          <select
+            aria-label="목차로 이동"
+            className="max-w-40 rounded bg-neutral-800 px-2 py-1.5 text-neutral-200"
+            value=""
+            onChange={(e) => e.target.value && flipRef.current?.flip(Number(e.target.value))}
+          >
+            <option value="">목차</option>
+            {chapters.map((c) => (
+              <option key={c.index} value={c.index}>{c.title}</option>
+            ))}
+          </select>
+        )}
+        <button type="button" onClick={toggleFullscreen} className="rounded px-2 py-1.5 hover:bg-neutral-700" aria-label="전체 화면">
+          {fullscreen ? "⤡" : "⛶"}
+        </button>
+        <span className={`hidden max-w-60 truncate text-neutral-400 lg:inline ${backHref ? "ml-auto" : ""}`}>{book.title}</span>
       </div>
 
       <div ref={templateRef} hidden aria-hidden>
@@ -139,7 +199,7 @@ export function FlipbookViewer({ book }: { book: Book }) {
                 theme={book.theme}
                 size={book.size}
                 scale={scale}
-                pageNumber={page.layoutId === "text-1col" ? i + 1 : undefined}
+                pageNumber={showsPageNumber(page.layoutId) ? i + 1 : undefined}
               />
             </div>
           ))}
