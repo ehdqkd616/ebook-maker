@@ -18,14 +18,14 @@ export async function SiteHeader() {
             <>
               {user.role === "admin" && (
                 <Link href="/admin" className="rounded-lg px-3 py-1.5 hover:bg-neutral-100">
-                  관리자
+                  관리자 페이지
                   {pending > 0 && (
                     <span className="ml-1.5 rounded-full bg-amber-500 px-1.5 py-0.5 text-xs font-semibold text-white">{pending}</span>
                   )}
                 </Link>
               )}
-              <Link href="/me" className="rounded-lg px-3 py-1.5 hover:bg-neutral-100">
-                {user.name} 님
+              <Link href="/me" title={user.username} className="rounded-lg px-3 py-1.5 hover:bg-neutral-100">
+                내 정보
               </Link>
               <LogoutButton />
             </>
