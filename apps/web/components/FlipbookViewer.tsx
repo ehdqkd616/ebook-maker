@@ -14,6 +14,9 @@ import type { Book } from "@ebook/schema";
 
 const TOOLBAR_HEIGHT = 56;
 const PADDING = 24;
+// 원근 거리 = 쪽 너비 × 이 값. page-flip 기본값(2000px 고정)이면 큰 책은 넘기는 동안 40% 넘게
+// 부풀어 책 밖·도구 막대까지 덮었다.
+const PERSPECTIVE_RATIO = 10;
 
 export function FlipbookViewer({ book, backHref }: { book: Book; backHref?: string }) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -22,6 +25,7 @@ export function FlipbookViewer({ book, backHref }: { book: Book; backHref?: stri
   const flipRef = useRef<PageFlip | null>(null);
   const currentRef = useRef(0);
   const [scale, setScale] = useState<number | null>(null);
+  const [spread, setSpread] = useState(true);
   const [current, setCurrent] = useState(0);
   const { width, height } = book.size;
   const total = book.pages.length;
@@ -53,9 +57,11 @@ export function FlipbookViewer({ book, backHref }: { book: Book; backHref?: stri
     let timer: ReturnType<typeof setTimeout>;
     const measure = () => {
       const cw = stage.clientWidth - PADDING * 2;
-      const ch = stage.clientHeight - PADDING * 2;
+      // hard 넘김은 3D로 회전하면서 잠깐 커지므로(최대 약 1/PERSPECTIVE_RATIO) 위아래 여유를 남긴다.
+      const ch = (stage.clientHeight - PADDING * 2) / (1 + 1 / PERSPECTIVE_RATIO);
       const spread = cw > ch;
       const next = Math.min(cw / (spread ? width * 2 : width), ch / height);
+      setSpread(spread);
       setScale(Math.max(0.1, Math.floor(next * 100) / 100));
     };
     const observer = new ResizeObserver(() => {
@@ -74,30 +80,40 @@ export function FlipbookViewer({ book, backHref }: { book: Book; backHref?: stri
   useEffect(() => {
     if (scale === null) return;
     let cancelled = false;
+    // page-flip 영역을 책 크기와 딱 맞춘다. 남는 공간을 page-flip이 직접 가운데 정렬하게 두면
+    // hard 넘김 중에 넘어가지 않는 쪽만 위로 밀려 그려져 양쪽 높이가 어긋났다.
+    const pw = Math.round(width * scale);
+    const ph = Math.round(height * scale);
     const block = document.createElement("div");
-    block.style.width = "100%";
-    block.style.height = "100%";
+    block.style.width = `${spread ? pw * 2 : pw}px`;
+    block.style.height = `${ph}px`;
+    block.style.flex = "none";
     stageRef.current!.appendChild(block);
 
     import("page-flip").then(({ PageFlip }) => {
       if (cancelled) return;
-      const pages = Array.from(templateRef.current!.children, (node, i) => {
+      // 모든 쪽을 hard(3D로 회전)로 넘긴다. soft(종이 말림)는 넘기는 동안 쪽을 비스듬히 잘라
+      // 기울여 그려서 글이 찌그러지고, 진한 그림자가 덮이고, 책 아래로 삐져나와 보였다.
+      const pages = Array.from(templateRef.current!.children, (node) => {
         const el = node.cloneNode(true) as HTMLElement;
-        el.dataset.density = i === 0 || i === total - 1 ? "hard" : "soft";
+        el.dataset.density = "hard";
         return el;
       });
       const pf = new PageFlip(block, {
-        width: Math.round(width * scale),
-        height: Math.round(height * scale),
+        width: pw,
+        height: ph,
         size: "fixed",
         autoSize: false,
         showCover: true,
         usePortrait: true,
         mobileScrollSupport: false,
-        maxShadowOpacity: 0.4,
+        maxShadowOpacity: 0.25,
+        flippingTime: 700,
         startPage: currentRef.current,
       });
       pf.loadFromHTML(pages);
+      const inner = block.querySelector<HTMLElement>(".stf__block");
+      if (inner) inner.style.perspective = `${pw * PERSPECTIVE_RATIO}px`;
       pf.on("flip", (e) => {
         currentRef.current = e.data;
         setCurrent(e.data);
@@ -111,7 +127,7 @@ export function FlipbookViewer({ book, backHref }: { book: Book; backHref?: stri
       flipRef.current = null;
       block.remove();
     };
-  }, [scale, width, height, total]);
+  }, [scale, spread, width, height, total]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -124,7 +140,7 @@ export function FlipbookViewer({ book, backHref }: { book: Book; backHref?: stri
 
   return (
     <div ref={rootRef} className="flex h-dvh flex-col bg-[radial-gradient(120%_80%_at_50%_0%,#3b3550,#16141f_70%)]">
-      <div ref={stageRef} className="relative min-h-0 flex-1" style={{ padding: PADDING }} />
+      <div ref={stageRef} className="relative flex min-h-0 flex-1 items-center justify-center" style={{ padding: PADDING }} />
 
       <div className="flex shrink-0 justify-center px-3 pb-3" style={{ height: TOOLBAR_HEIGHT + 12 }}>
         <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-white/[0.07] px-2 text-sm text-white/85 shadow-2xl backdrop-blur-xl">
