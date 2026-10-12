@@ -39,6 +39,38 @@ export async function uploadBlob(blob: Blob): Promise<string> {
   return url;
 }
 
+/** 오디오·동영상 올리기 (30MB까지) */
+export async function uploadMedia(file: File): Promise<string> {
+  if (!/^(audio|video)\//.test(file.type)) throw new Error("오디오나 동영상 파일만 넣을 수 있습니다.");
+  if (file.size > 30 * 1024 * 1024) throw new Error("오디오·동영상은 30MB까지 올릴 수 있어요. 더 큰 동영상은 YouTube에 올리고 주소를 넣어 주세요.");
+  return uploadBlob(file);
+}
+
+/** 파일 선택 창을 띄워 하나를 고르게 한다 */
+export function pickFile(accept: string): Promise<File | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = accept;
+    input.onchange = () => resolve(input.files?.[0] ?? null);
+    input.addEventListener("cancel", () => resolve(null));
+    input.click();
+  });
+}
+
+/** 여러 파일 고르기 (슬라이드쇼 사진 등) */
+export function pickFiles(accept: string): Promise<File[]> {
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = accept;
+    input.multiple = true;
+    input.onchange = () => resolve(Array.from(input.files ?? []));
+    input.addEventListener("cancel", () => resolve([]));
+    input.click();
+  });
+}
+
 /** 파일 선택 창을 띄워 이미지 하나를 고르게 한다 */
 export function pickImageFile(): Promise<File | null> {
   return new Promise((resolve) => {

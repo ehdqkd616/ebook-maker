@@ -3,6 +3,13 @@
 import Link from "next/link";
 import {
   AlertTriangle,
+  Code2,
+  Crosshair,
+  Film,
+  GalleryHorizontal,
+  Music,
+  RectangleHorizontal,
+  Tag,
   Circle,
   Cloud,
   CloudOff,
@@ -26,9 +33,10 @@ import {
 import { LogoMark } from "@/components/Logo";
 import { useCallback, useEffect, useState } from "react";
 import { moveOverflowToNextPage, overflowingBlocks } from "@ebook/layouts";
-import type { Book, LayoutId } from "@ebook/schema";
+import { newId } from "@ebook/layouts";
+import type { Block, Book, LayoutId } from "@ebook/schema";
 import { installTextMeasurer } from "@/lib/measure";
-import { uploadImage, pickImageFile } from "@/lib/upload";
+import { pickFile, pickFiles, pickImageFile, uploadImage, uploadMedia } from "@/lib/upload";
 import { Canvas } from "./Canvas";
 import { Inspector, type InspectorTab } from "./Inspector";
 import {
@@ -48,6 +56,9 @@ import {
 import { PageList } from "./PageList";
 import { PublishDialog, type Publication } from "./PublishDialog";
 import { useBookState, type SaveState } from "./useBookState";
+
+// 복사한 블록 (탭 안에서만, 쪽을 옮겨 다니며 붙여 넣을 수 있게)
+let clipboard: Block | null = null;
 
 // 에디터 (SPEC 8): 왼쪽 페이지 목록 · 가운데 캔버스 · 오른쪽 속성 패널, 위 도구 막대.
 // 단축키: Ctrl+Z / Ctrl+Shift+Z(Ctrl+Y) 되돌리기·다시, Delete 블록 삭제, Ctrl+D 블록 복제,
@@ -71,6 +82,16 @@ const INSERT_BUTTONS: { kind: NewBlockKind; icon: typeof Type }[] = [
   { kind: "ellipse", icon: Circle },
   { kind: "line", icon: Minus },
   { kind: "link", icon: LinkIcon },
+];
+// 인터랙티브 요소 (FlipHTML5·Flipsnack의 멀티미디어·인터랙션)
+const INTERACTIVE_BUTTONS: { kind: NewBlockKind; icon: typeof Type }[] = [
+  { kind: "video", icon: Film },
+  { kind: "audio", icon: Music },
+  { kind: "slideshow", icon: GalleryHorizontal },
+  { kind: "button", icon: RectangleHorizontal },
+  { kind: "hotspot", icon: Crosshair },
+  { kind: "product", icon: Tag },
+  { kind: "embed", icon: Code2 },
 ];
 
 const ZOOMS = ["fit", 0.5, 0.75, 1, 1.25, 1.5] as const;
@@ -136,6 +157,56 @@ export function BookEditor({
     update((bk) => addBlock(bk, page.id, b));
     select(b.id);
     if (kind === "image") void pickImage({ blockId: b.id });
+    if (kind === "audio") void pickMedia(b.id, "audio/*");
+    if (kind === "slideshow") void addSlides(b.id);
+  }
+
+  async function pickMedia(blockId: string, accept: string, pageId = page.id) {
+    const file = await pickFile(accept);
+    if (!file) return;
+    try {
+      flash(`${file.type.startsWith("video") ? "동영상" : "오디오"}을 올리는 중…`);
+      const url = await uploadMedia(file);
+      update((bk) =>
+        updateBlock(bk, pageId, blockId, (b) =>
+          b.type === "audio" ? { ...b, data: { ...b.data, src: url, title: b.data.title && b.data.title !== "오디오 재생" ? b.data.title : file.name.replace(/\.[^.]+$/, "") } } : b.type === "video" ? { ...b, data: { ...b.data, src: url } } : b,
+        ),
+      );
+      setNotice("");
+    } catch (e) {
+      flash(e instanceof Error ? e.message : "올리지 못했습니다.");
+    }
+  }
+
+  async function addSlides(blockId: string, pageId = page.id) {
+    const files = await pickFiles("image/png,image/jpeg,image/gif,image/webp");
+    if (!files.length) return;
+    try {
+      const urls: string[] = [];
+      for (const [i, f] of files.slice(0, 30).entries()) {
+        flash(`사진 올리는 중… (${i + 1}/${Math.min(files.length, 30)})`);
+        urls.push(await uploadImage(f));
+      }
+      update((bk) => updateBlock(bk, pageId, blockId, (b) => (b.type === "slideshow" ? { ...b, data: { ...b.data, images: [...b.data.images, ...urls.map((src) => ({ src }))].slice(0, 30) } } : b)));
+      setNotice("");
+    } catch (e) {
+      flash(e instanceof Error ? e.message : "올리지 못했습니다.");
+    }
+  }
+
+  /** 이미지·오디오를 골라 올리고 주소만 돌려준다 (상품 사진, 팝업 그림, 뷰어 로고·배경음 등) */
+  async function pickUrl(kind: "image" | "audio"): Promise<string | null> {
+    const file = kind === "image" ? await pickImageFile() : await pickFile("audio/*");
+    if (!file) return null;
+    try {
+      flash(kind === "image" ? "이미지를 올리는 중…" : "오디오를 올리는 중…");
+      const url = kind === "image" ? await uploadImage(file) : await uploadMedia(file);
+      setNotice("");
+      return url;
+    } catch (e) {
+      flash(e instanceof Error ? e.message : "올리지 못했습니다.");
+      return null;
+    }
   }
 
   // 레이아웃을 바꿀 때 글 높이를 실제 글꼴로 재도록
@@ -171,7 +242,19 @@ export function BookEditor({
           return r.book;
         });
         if (id) select(id);
-      } else if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
+      } else if (mod && e.key.toLowerCase() === "c" && block) {
+        clipboard = structuredClone(block);
+        flash("블록을 복사했어요. 다른 쪽에서 Ctrl+V로 붙여 넣으세요.");
+      } else if (mod && e.key.toLowerCase() === "v" && clipboard) {
+        e.preventDefault();
+        const copy = { ...structuredClone(clipboard), id: newId(), slot: undefined, locked: false } as typeof clipboard;
+        if (clipboard && page.blocks.some((b) => b.x === copy.x && b.y === copy.y)) {
+          copy.x += 20;
+          copy.y += 20;
+        }
+        update((bk) => addBlock(bk, page.id, copy));
+        select(copy.id);
+      } else if ((e.key === "Delete" || e.key === "Backspace") && selectedId && !block?.locked) {
         e.preventDefault();
         update((bk) => deleteBlock(bk, page.id, selectedId));
         select(null);
@@ -236,14 +319,22 @@ export function BookEditor({
         <div className="mx-1.5 h-6 w-px bg-black/[0.08]" />
 
         {/* 블록 넣기 */}
-        <div className="hidden items-center gap-0.5 rounded-xl bg-neutral-100/80 p-0.5 md:flex" role="toolbar" aria-label="블록 넣기">
-          {INSERT_BUTTONS.map(({ kind, icon: Icon }) => (
-            <button key={kind} type="button" className="group relative grid size-8 place-items-center rounded-[9px] text-neutral-600 transition hover:bg-white hover:text-ink hover:shadow-[0_1px_2px_rgb(0_0_0/0.08)]" onClick={() => add(kind)} aria-label={`${NEW_BLOCK_LABELS[kind]} 넣기`}>
-              <Icon className="size-[17px]" />
-              <span className="pointer-events-none absolute top-full mt-2 hidden rounded-md bg-ink px-2 py-1 text-[11px] font-medium whitespace-nowrap text-white group-hover:block">{NEW_BLOCK_LABELS[kind]}</span>
-            </button>
-          ))}
-        </div>
+        {[INSERT_BUTTONS, INTERACTIVE_BUTTONS].map((group, gi) => (
+          <div key={gi} className={`hidden items-center gap-0.5 rounded-xl p-0.5 md:flex ${gi ? "ml-1 bg-brand-50" : "bg-neutral-100/80"}`} role="toolbar" aria-label={gi ? "인터랙티브 요소 넣기" : "블록 넣기"}>
+            {group.map(({ kind, icon: Icon }) => (
+              <button
+                key={kind}
+                type="button"
+                className={`group relative grid size-8 place-items-center rounded-[9px] transition hover:bg-white hover:text-ink hover:shadow-[0_1px_2px_rgb(0_0_0/0.08)] ${gi ? "text-brand-700" : "text-neutral-600"}`}
+                onClick={() => add(kind)}
+                aria-label={`${NEW_BLOCK_LABELS[kind]} 넣기`}
+              >
+                <Icon className="size-[17px]" />
+                <span className="pointer-events-none absolute top-full z-30 mt-2 hidden rounded-md bg-ink px-2 py-1 text-[11px] font-medium whitespace-nowrap text-white group-hover:block">{NEW_BLOCK_LABELS[kind]}</span>
+              </button>
+            ))}
+          </div>
+        ))}
 
         <select
           className="ml-1.5 rounded-[9px] border-0 bg-transparent px-2 py-1.5 text-sm font-medium text-neutral-600 hover:bg-black/5"
@@ -341,7 +432,12 @@ export function BookEditor({
           </div>
         </main>
 
-        <Inspector book={book} page={page} block={block} tab={tab} setTab={setTab} update={update} onSelect={select} onPickImage={(t) => void pickImage(t)} />
+        <Inspector book={book} page={page} block={block} tab={tab} setTab={setTab} update={update} onSelect={select} onPickImage={(t) => void pickImage(t)}
+          onPickMedia={(id, accept) => void pickMedia(id, accept)}
+          onAddSlides={(id) => void addSlides(id)}
+          pickImageUrl={() => pickUrl("image")}
+          pickAudioUrl={() => pickUrl("audio")}
+        />
       </div>
 
       {publishOpen && (

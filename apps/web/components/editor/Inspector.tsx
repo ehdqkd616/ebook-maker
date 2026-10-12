@@ -15,13 +15,15 @@ import { SIZE_PRESETS, type Block, type Book, type Page, type SizePreset } from 
 import { PageThumb } from "@/components/PageThumb";
 import { blockText, withText } from "./Canvas";
 import { deleteBlock, duplicateBlock, reorderBlock, setStyle, updateBlock, updatePage } from "./ops";
+import { ActionSection, AnimationSection, AppearanceSection, LayersList, LockHide, MediaSections, ViewerPanel } from "./InspectorExtras";
 
 type Update = (fn: (b: Book) => Book, mergeKey?: string) => void;
-export type InspectorTab = "block" | "page" | "book";
+export type InspectorTab = "block" | "page" | "book" | "viewer";
 
 const SIZE_LABEL: Record<SizePreset, string> = { A4: "A4 세로", LETTER: "레터", SQUARE: "정사각형", LANDSCAPE: "가로형" };
 const TYPE_LABEL: Record<Block["type"], string> = {
-  heading: "제목", paragraph: "본문", list: "목록", quote: "인용", image: "이미지", shape: "도형", audio: "오디오", video: "비디오", link: "링크", toc: "목차",
+  heading: "제목", paragraph: "본문", list: "목록", quote: "인용", image: "이미지", shape: "도형", audio: "오디오", video: "동영상", link: "링크", toc: "목차",
+  slideshow: "슬라이드쇼", product: "상품 태그", button: "버튼", hotspot: "핫스팟", embed: "임베드",
 };
 
 /** <input type="color">는 #rrggbb만 받는다 */
@@ -42,6 +44,10 @@ export function Inspector({
   update,
   onSelect,
   onPickImage,
+  onPickMedia,
+  onAddSlides,
+  pickImageUrl,
+  pickAudioUrl,
 }: {
   book: Book;
   page: Page;
@@ -51,12 +57,16 @@ export function Inspector({
   update: Update;
   onSelect: (id: string | null) => void;
   onPickImage: (target: { blockId: string } | "background") => void;
+  onPickMedia: (blockId: string, accept: string) => void;
+  onAddSlides: (blockId: string) => void;
+  pickImageUrl: () => Promise<string | null>;
+  pickAudioUrl: () => Promise<string | null>;
 }) {
   const active = tab === "block" && !block ? "page" : tab;
   return (
     <aside className="flex w-80 shrink-0 flex-col border-l border-black/[0.06] bg-white">
       <div className="seg m-3 mb-0 flex">
-        {(["block", "page", "book"] as const).map((t) => (
+        {(["block", "page", "book", "viewer"] as const).map((t) => (
           <button
             key={t}
             type="button"
@@ -65,14 +75,20 @@ export function Inspector({
             aria-pressed={active === t}
             className="flex-1 disabled:opacity-30"
           >
-            {t === "block" ? "블록" : t === "page" ? "페이지" : "책"}
+            {{ block: "블록", page: "페이지", book: "책", viewer: "뷰어" }[t]}
           </button>
         ))}
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-4 text-sm">
-        {active === "block" && block && <BlockPanel book={book} page={page} block={block} update={update} onSelect={onSelect} onPickImage={onPickImage} />}
-        {active === "page" && <PagePanel book={book} page={page} update={update} onPickImage={onPickImage} />}
+        {active === "block" && block && (
+          <BlockPanel
+            book={book} page={page} block={block} update={update} onSelect={onSelect} onPickImage={onPickImage}
+            onPickMedia={onPickMedia} onAddSlides={onAddSlides} pickImageUrl={pickImageUrl}
+          />
+        )}
+        {active === "page" && <PagePanel book={book} page={page} selectedId={block?.id ?? null} update={update} onSelect={onSelect} onPickImage={onPickImage} />}
         {active === "book" && <BookPanel book={book} update={update} />}
+        {active === "viewer" && <ViewerPanel book={book} update={update} pickImageUrl={pickImageUrl} pickAudioUrl={pickAudioUrl} />}
       </div>
     </aside>
   );
@@ -112,9 +128,10 @@ function ColorField({ value, fallback, onChange, onReset }: { value?: string; fa
 // ── 블록 ─────────────────────────────────────────────
 
 function BlockPanel({
-  book, page, block, update, onSelect, onPickImage,
+  book, page, block, update, onSelect, onPickImage, onPickMedia, onAddSlides, pickImageUrl,
 }: {
   book: Book; page: Page; block: Block; update: Update; onSelect: (id: string | null) => void; onPickImage: (t: { blockId: string }) => void;
+  onPickMedia: (blockId: string, accept: string) => void; onAddSlides: (blockId: string) => void; pickImageUrl: () => Promise<string | null>;
 }) {
   const set = (fn: (b: Block) => Block, key?: string) => update((bk) => updateBlock(bk, page.id, block.id, fn), key);
   const style = (k: string, v: string | number | undefined) => set((b) => setStyle(b, k, v), `style:${block.id}:${k}`);
@@ -188,9 +205,6 @@ function BlockPanel({
           <Row label="대체 텍스트">
             <input className={small} value={block.data.alt} onChange={(e) => set((b) => (b.type === "image" ? { ...b, data: { ...b.data, alt: e.target.value } } : b), `alt:${block.id}`)} />
           </Row>
-          <Row label="모서리 둥글게">
-            <input type="range" min={0} max={60} value={Number(block.style?.borderRadius ?? 0)} onChange={(e) => style("borderRadius", Number(e.target.value) || undefined)} />
-          </Row>
         </Section>
       )}
 
@@ -210,9 +224,6 @@ function BlockPanel({
               onChange={(c) => set((b) => (b.type === "shape" ? { ...b, data: { ...b.data, fill: c } } : b), `fill:${block.id}`)}
               onReset={() => set((b) => (b.type === "shape" ? { ...b, data: { kind: b.data.kind } } : b))}
             />
-          </Row>
-          <Row label="모서리 둥글게">
-            <input type="range" min={0} max={80} value={Number(block.style?.borderRadius ?? 0)} onChange={(e) => style("borderRadius", Number(e.target.value) || undefined)} />
           </Row>
         </Section>
       )}
@@ -265,6 +276,12 @@ function BlockPanel({
         </Section>
       )}
 
+      <MediaSections block={block} set={set} onPickMedia={onPickMedia} onAddSlides={onAddSlides} pickImageUrl={pickImageUrl} />
+
+      <ActionSection block={block} set={set} pageCount={book.pages.length} pickImageUrl={pickImageUrl} />
+      <AnimationSection block={block} set={set} />
+      <AppearanceSection block={block} set={set} />
+
       <Section title="위치·크기 (px)">
         <div className="grid grid-cols-2 gap-2">
           {(["x", "y", "w", "h"] as const).map((k) => (
@@ -286,6 +303,8 @@ function BlockPanel({
           <input type="range" min={10} max={100} value={Math.round(Number(block.style?.opacity ?? 1) * 100)} onChange={(e) => style("opacity", Number(e.target.value) >= 100 ? undefined : Number(e.target.value) / 100)} />
         </Row>
       </Section>
+
+      <LockHide block={block} set={set} />
 
       <Section title="배치">
         <div className="grid grid-cols-2 gap-1.5">
@@ -326,7 +345,11 @@ function BlockPanel({
 
 // ── 페이지 ───────────────────────────────────────────
 
-function PagePanel({ book, page, update, onPickImage }: { book: Book; page: Page; update: Update; onPickImage: (t: "background") => void }) {
+function PagePanel({
+  book, page, selectedId, update, onSelect, onPickImage,
+}: {
+  book: Book; page: Page; selectedId: string | null; update: Update; onSelect: (id: string | null) => void; onPickImage: (t: "background") => void;
+}) {
   const samples = useMemo(() => LAYOUT_LIST.map((l) => ({ layout: l, page: createPage(l.id, book.size) })), [book.size]);
   return (
     <>
@@ -369,6 +392,8 @@ function PagePanel({ book, page, update, onPickImage }: { book: Book; page: Page
           )}
         </div>
       </Section>
+
+      <LayersList page={page} selectedId={selectedId} update={update} onSelect={onSelect} />
     </>
   );
 }

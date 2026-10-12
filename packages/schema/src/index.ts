@@ -64,8 +64,34 @@ export const LAYOUT_IDS = [
 export const LayoutId = z.enum(LAYOUT_IDS);
 export type LayoutId = z.infer<typeof LayoutId>;
 
+// 블록을 눌렀을 때 — 외부 링크, 책 안 다른 쪽으로 이동, 팝업(글·이미지·동영상)
+export const BlockAction = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("url"), href: z.string().max(2000) }),
+  z.object({ type: z.literal("page"), page: z.number().int().positive() }),
+  z.object({
+    type: z.literal("popup"),
+    title: z.string().max(200).optional(),
+    text: z.string().max(5000).optional(),
+    image: z.string().max(2000).optional(),
+    video: z.string().max(2000).optional(),
+  }),
+]);
+export type BlockAction = z.infer<typeof BlockAction>;
+
+export const ANIMATIONS = ["fade", "slide-up", "slide-left", "slide-right", "zoom", "bounce"] as const;
+export const BlockAnimation = z.object({
+  type: z.enum(ANIMATIONS),
+  delay: z.number().min(0).max(10_000).default(0), // ms
+  duration: z.number().min(100).max(5000).default(600),
+});
+export type BlockAnimation = z.infer<typeof BlockAnimation>;
+
 const blockBase = {
   id: z.string(),
+  action: BlockAction.optional(),
+  animation: BlockAnimation.optional(),
+  locked: z.boolean().optional(), // 에디터에서 선택·이동 막기
+  hidden: z.boolean().optional(),
   slot: z.string().optional(), // 레이아웃 슬롯 이름 (자동 배치 시)
   x: z.number(),
   y: z.number(),
@@ -82,8 +108,40 @@ export const Block = z.discriminatedUnion("type", [
   z.object({ ...blockBase, type: z.literal("quote"), data: z.object({ text: z.string(), cite: z.string().optional() }) }),
   z.object({ ...blockBase, type: z.literal("image"), data: z.object({ src: z.string(), alt: z.string().default(""), fit: z.enum(["cover", "contain"]).default("cover") }) }),
   z.object({ ...blockBase, type: z.literal("shape"), data: z.object({ kind: z.enum(["rect", "ellipse", "line"]), fill: z.string().optional() }) }),
-  z.object({ ...blockBase, type: z.literal("audio"), data: z.object({ src: z.string() }) }),
-  z.object({ ...blockBase, type: z.literal("video"), data: z.object({ src: z.string() }) }),
+  z.object({ ...blockBase, type: z.literal("audio"), data: z.object({ src: z.string(), title: z.string().optional() }) }),
+  // src: 올린 파일(/api/files/…) 또는 YouTube·Vimeo 주소
+  z.object({
+    ...blockBase,
+    type: z.literal("video"),
+    data: z.object({ src: z.string(), autoplay: z.boolean().optional(), loop: z.boolean().optional(), muted: z.boolean().optional() }),
+  }),
+  z.object({
+    ...blockBase,
+    type: z.literal("slideshow"),
+    data: z.object({
+      images: z.array(z.object({ src: z.string(), caption: z.string().optional() })).max(30),
+      fit: z.enum(["cover", "contain"]).default("cover"),
+      autoplay: z.number().min(0).max(60).default(0), // 초, 0이면 수동
+    }),
+  }),
+  // 상품 태그: 페이지 위 동그란 표시를 누르면 상품 카드가 뜬다 (카탈로그)
+  z.object({
+    ...blockBase,
+    type: z.literal("product"),
+    data: z.object({
+      name: z.string().max(200),
+      price: z.string().max(50).optional(),
+      description: z.string().max(2000).optional(),
+      image: z.string().optional(),
+      href: z.string().max(2000).optional(),
+      buttonText: z.string().max(40).optional(),
+    }),
+  }),
+  z.object({ ...blockBase, type: z.literal("button"), data: z.object({ text: z.string().max(80), variant: z.enum(["solid", "outline", "pill"]).default("solid") }) }),
+  // 투명한 클릭 영역 — PDF 페이지 위에 링크·팝업을 얹을 때
+  z.object({ ...blockBase, type: z.literal("hotspot"), data: z.object({ label: z.string().max(80).optional(), pulse: z.boolean().default(false) }) }),
+  // 외부 웹 콘텐츠(iframe). https 주소만
+  z.object({ ...blockBase, type: z.literal("embed"), data: z.object({ url: z.string().max(2000) }) }),
   z.object({ ...blockBase, type: z.literal("link"), data: z.object({ text: z.string(), href: z.string() }) }),
   // 목차: 챕터 시작 페이지에서 자동으로 채운다 (refreshToc)
   z.object({
@@ -101,8 +159,43 @@ export const Page = z.object({
   chapterId: z.string().optional(),
   background: z.object({ color: z.string().optional(), imageUrl: z.string().optional() }).optional(),
   blocks: z.array(Block),
+  /** 검색용 글 (PDF에서 가져온 페이지처럼 블록에 글이 없을 때) */
+  searchText: z.string().max(20_000).optional(),
 });
 export type Page = z.infer<typeof Page>;
+
+// 뷰어(플립북) 설정 — 넘김 방식, 배경, 로고, 도구 막대 버튼, 소리, 자동 넘김, 다운로드 허용
+export const VIEWER_MODES = ["flip", "slide", "scroll"] as const;
+export const ViewerSettings = z.object({
+  mode: z.enum(VIEWER_MODES).default("flip"),
+  background: z.string().max(40).optional(),
+  backgroundImage: z.string().max(2000).optional(),
+  logo: z.string().max(2000).optional(),
+  logoHref: z.string().max(2000).optional(),
+  flipSound: z.boolean().default(true),
+  music: z.string().max(2000).optional(), // 배경 음악 (올린 오디오)
+  autoplaySeconds: z.number().int().min(0).max(120).default(0),
+  allowDownload: z.boolean().default(false), // 공개본에서 PDF 저장·인쇄 허용
+  showPageNumbers: z.boolean().default(true),
+  buttons: z
+    .object({
+      thumbnails: z.boolean().default(true),
+      toc: z.boolean().default(true),
+      search: z.boolean().default(true),
+      zoom: z.boolean().default(true),
+      share: z.boolean().default(true),
+      fullscreen: z.boolean().default(true),
+      bookmarks: z.boolean().default(true),
+      autoplay: z.boolean().default(true),
+      sound: z.boolean().default(true),
+    })
+    .prefault({}),
+});
+export type ViewerSettings = z.infer<typeof ViewerSettings>;
+export const DEFAULT_VIEWER: ViewerSettings = ViewerSettings.parse({});
+
+export const TocEntry = z.object({ title: z.string().max(300), page: z.number().int().positive(), level: z.number().int().min(1).max(4).default(1) });
+export type TocEntry = z.infer<typeof TocEntry>;
 
 export const Book = z.object({
   id: z.string(),
@@ -115,6 +208,9 @@ export const Book = z.object({
   theme: Theme,
   outline: Outline,
   pages: z.array(Page),
+  viewer: ViewerSettings.optional(),
+  /** 목차를 직접 정한 경우 (PDF 책갈피 등). 없으면 챕터 시작 페이지로 만든다 */
+  toc: z.array(TocEntry).max(500).optional(),
   meta: z.object({
     audience: z.string().optional(),
     style: z.string().optional(),

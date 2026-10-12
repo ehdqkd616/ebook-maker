@@ -102,6 +102,20 @@ const SCHEMA = `
     finished_at  INTEGER
   );
 
+  -- 공개본 열람 통계 (뷰어가 보낸다). visitor는 IP·브라우저·날짜로 만든 해시라 사람을 특정하지 않는다
+  CREATE TABLE IF NOT EXISTS book_events (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    book_id     TEXT NOT NULL,
+    event       TEXT NOT NULL,                          -- view / page / click
+    page        INTEGER,
+    block_id    TEXT,
+    visitor     TEXT,
+    referrer    TEXT,
+    device      TEXT,                                   -- mobile / desktop
+    created_at  INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_book_events ON book_events (book_id, created_at);
+
   -- 잔액 컬럼 없이 +/- 기록만 쌓는다 (SPEC 12)
   CREATE TABLE IF NOT EXISTS credit_ledger (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,

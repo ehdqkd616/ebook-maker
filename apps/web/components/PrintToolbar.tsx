@@ -2,10 +2,10 @@
 
 import { ArrowLeft, Printer } from "lucide-react";
 
-export function PrintToolbar({ title, backHref, pages }: { title: string; backHref: string; pages: number }) {
+export function PrintToolbar({ title, backHref, pages, backLabel = "편집으로" }: { title: string; backHref: string; pages: number; backLabel?: string }) {
   return (
     <div className="print-toolbar glass sticky top-0 z-10 flex items-center gap-3 border-b px-4 py-3 text-sm">
-      <a href={backHref} className="btn"><ArrowLeft className="size-4" /> 편집으로</a>
+      <a href={backHref} className="btn"><ArrowLeft className="size-4" /> {backLabel}</a>
       <span className="min-w-0 truncate font-medium">{title}</span>
       <span className="muted">{pages}쪽</span>
       <span className="muted ml-auto hidden md:inline">인쇄 창에서 대상을 <b>PDF로 저장</b>, 여백 <b>없음</b>, <b>배경 그래픽</b>을 켜 주세요.</span>

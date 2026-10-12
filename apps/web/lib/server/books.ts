@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import type { UserRow } from "@ebook/db";
 import { newId, refreshToc } from "@ebook/layouts";
 import { Book } from "@ebook/schema";
+import { hashPassword, sha256 } from "./auth";
 import { bad, HttpError } from "./http";
 import { getStore } from "./store";
 
@@ -117,12 +118,66 @@ export function unpublishBook(user: UserRow, id: string) {
   store.run("UPDATE books SET status = 'draft' WHERE id = ?", id);
 }
 
-export function getPublishedSnapshot(slug: string): Book | null {
+export const VISIBILITIES = ["public", "unlisted", "password"] as const;
+export type Visibility = (typeof VISIBILITIES)[number];
+
+/** 공개 범위 바꾸기: public(공개 책장에 보임) / unlisted(주소를 아는 사람만) / password(비밀번호) */
+export async function setPublicationAccess(user: UserRow, id: string, visibility: unknown, password: unknown) {
+  getOwnedBook(id, user);
+  const pub = getPublication(id);
+  if (!pub) throw bad("먼저 퍼블리시해 주세요.", "NOT_PUBLISHED");
+  if (!VISIBILITIES.includes(visibility as Visibility)) throw bad("공개 범위를 골라 주세요.");
+  let hash: string | null = null;
+  if (visibility === "password") {
+    if (typeof password === "string" && password.length > 0) {
+      if (password.length < 4 || password.length > 64) throw bad("비밀번호는 4~64자로 정해 주세요.");
+      hash = await hashPassword(password);
+    } else {
+      hash = getStore().get<{ password_hash: string | null }>("SELECT password_hash FROM publications WHERE id = ?", pub.id)?.password_hash ?? null;
+      if (!hash) throw bad("비밀번호를 입력해 주세요.");
+    }
+  }
+  getStore().run("UPDATE publications SET visibility = ?, password_hash = ? WHERE id = ?", visibility as string, hash, pub.id);
+  return getPublication(id)!;
+}
+
+export type PublishedBook = { book: Book; bookId: string; visibility: Visibility; passwordHash: string | null; ownerId: number | null; publishedAt: number };
+
+export function getPublished(slug: string): PublishedBook | null {
   if (!/^[A-Za-z0-9]{6,20}$/.test(slug)) return null;
-  const row = getStore().get<{ snapshot: string }>("SELECT snapshot FROM publications WHERE slug = ?", slug);
+  const row = getStore().get<{ snapshot: string; book_id: string; visibility: Visibility; password_hash: string | null; user_id: number | null; published_at: number }>(
+    `SELECT p.snapshot, p.book_id, p.visibility, p.password_hash, p.published_at, b.user_id
+     FROM publications p JOIN books b ON b.id = p.book_id WHERE p.slug = ?`,
+    slug,
+  );
   if (!row) return null;
   const parsed = Book.safeParse(JSON.parse(row.snapshot));
-  return parsed.success ? parsed.data : null;
+  if (!parsed.success) return null;
+  return { book: parsed.data, bookId: row.book_id, visibility: row.visibility, passwordHash: row.password_hash, ownerId: row.user_id, publishedAt: row.published_at };
+}
+
+/** 비밀번호 책을 연 사람에게 주는 쿠키 값 — DB에만 있는 비밀번호 해시로 만들어 추측할 수 없다 */
+export const unlockCookieName = (slug: string) => `eb_unlock_${slug}`;
+export const unlockToken = (slug: string, passwordHash: string) => sha256(`${slug}:${passwordHash}`);
+
+export function getPublishedSnapshot(slug: string): Book | null {
+  return getPublished(slug)?.book ?? null;
+}
+
+/** 공개 책장 — public으로 공개한 책 */
+export function listPublicBooks(userId: number) {
+  return getStore()
+    .all<{ slug: string; snapshot: string; published_at: number }>(
+      `SELECT p.slug, p.snapshot, p.published_at FROM publications p JOIN books b ON b.id = p.book_id
+       WHERE b.user_id = ? AND p.visibility = 'public' ORDER BY p.published_at DESC`,
+      userId,
+    )
+    .flatMap((r) => {
+      const parsed = Book.safeParse(JSON.parse(r.snapshot));
+      if (!parsed.success) return [];
+      const b = parsed.data;
+      return [{ slug: r.slug, title: b.title, pageCount: b.pages.length, publishedAt: r.published_at, book: { ...b, pages: b.pages.slice(0, 1) } }];
+    });
 }
 
 /** 대시보드용 목록 + 표지 미리보기에 쓸 첫 페이지 */

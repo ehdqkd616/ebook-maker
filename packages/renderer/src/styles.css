@@ -110,18 +110,147 @@ ol.eb-list { list-style: decimal; }
   padding: 0;
   font-size: 18px;
 }
-.eb-toc li {
+.eb-toc li { border-bottom: 1px solid color-mix(in srgb, var(--eb-text) 10%, transparent); }
+.eb-toc-link {
   display: flex;
+  width: 100%;
   align-items: baseline;
   gap: 14px;
   padding: 14px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--eb-text) 10%, transparent);
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
+.eb-toc-link:hover .eb-toc-title { color: var(--eb-primary); }
 .eb-toc-no { color: var(--eb-primary); font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; }
 .eb-toc-title { font-weight: 600; }
 .eb-toc-dots { flex: 1; border-bottom: 2px dotted color-mix(in srgb, var(--eb-text) 25%, transparent); transform: translateY(-4px); }
 .eb-toc-page { font-variant-numeric: tabular-nums; opacity: 0.7; }
-.eb-toc-empty { opacity: 0.5; border: 0 !important; }
+.eb-toc-empty { opacity: 0.5; border: 0 !important; padding: 14px 0; }
+
+/* page-flip은 눌린 요소가 a·button 자체일 때만 클릭을 넘겨준다 → 안쪽 요소는 클릭을 통과시킨다 */
+.eb-interactive *, .eb-toc-link *, .eb-slide-nav * { pointer-events: none; }
+.eb-interactive { cursor: pointer; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; background: none; }
+.eb-icon { width: 100%; height: 100%; }
+
+/* 동작이 붙은 블록 위 투명 버튼 */
+.eb-action-cover { background: transparent; border: 0; padding: 0; cursor: pointer; z-index: 1; }
+.eb-action-cover:hover { background: color-mix(in srgb, var(--eb-primary) 8%, transparent); outline: 2px solid color-mix(in srgb, var(--eb-primary) 35%, transparent); border-radius: 4px; }
+
+/* 동영상 */
+.eb-video { overflow: hidden; border-radius: 10px; background: #111; display: grid; place-items: center; }
+.eb-video-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.eb-video-empty { color: rgba(255, 255, 255, 0.5); font-size: 15px; }
+.eb-video-play {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  padding: 18px 16px 18px 20px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  transition: transform 0.2s;
+}
+.eb-video:hover .eb-video-play { transform: scale(1.08); background: var(--eb-primary); }
+
+/* 오디오 */
+.eb-audio {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 18px 0 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--eb-primary) 10%, var(--eb-bg));
+  border: 1px solid color-mix(in srgb, var(--eb-primary) 25%, transparent) !important;
+  font-size: 16px;
+  font-weight: 600;
+}
+.eb-audio-icon { display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0; padding: 11px 10px 11px 12px; border-radius: 999px; background: var(--eb-primary); color: #fff; }
+.eb-audio.eb-playing .eb-audio-icon { animation: eb-pulse 1.2s infinite; }
+.eb-audio-title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+/* 슬라이드쇼 */
+.eb-slideshow { overflow: hidden; border-radius: 10px; background: #f1f1f1; }
+.eb-slides { display: flex; height: 100%; transition: transform 0.45s cubic-bezier(.2,.7,.2,1); }
+.eb-slide { position: relative; flex: 0 0 100%; height: 100%; margin: 0; }
+.eb-slide img { width: 100%; height: 100%; display: block; }
+.eb-slide figcaption { position: absolute; left: 0; right: 0; bottom: 0; padding: 28px 16px 12px; color: #fff; font-size: 14px; background: linear-gradient(transparent, rgba(0,0,0,.6)); }
+.eb-slide-nav {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 40px; height: 40px; border-radius: 999px; border: 0;
+  background: rgba(255,255,255,.88); color: #111; font-size: 26px; line-height: 1; cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0,0,0,.2);
+}
+.eb-slide-prev { left: 10px; }
+.eb-slide-next { right: 10px; }
+.eb-slide-dots { position: absolute; left: 0; right: 0; bottom: 10px; display: flex; justify-content: center; gap: 6px; pointer-events: none; }
+.eb-slide-dots span { width: 7px; height: 7px; border-radius: 999px; background: rgba(255,255,255,.55); transition: all .3s; }
+.eb-slide-dots span.on { width: 18px; background: #fff; }
+
+/* 상품 태그 */
+.eb-product { display: grid; place-items: center; }
+.eb-product-pin {
+  display: grid; place-items: center; width: 100%; height: 100%; max-width: 56px; max-height: 56px; padding: 22%;
+  border-radius: 999px; background: #fff; color: var(--eb-primary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--eb-primary) 30%, transparent), 0 6px 18px rgba(0,0,0,.25);
+  animation: eb-pulse 2s infinite;
+}
+
+/* 버튼 */
+.eb-button { display: grid; place-items: center; font-weight: 700; font-size: 17px; border-radius: 10px; transition: transform .15s, filter .15s; }
+.eb-button:hover { transform: translateY(-1px); filter: brightness(1.06); }
+.eb-button-solid { background: var(--eb-primary); color: #fff; }
+.eb-button-outline { background: transparent; color: var(--eb-primary); border: 2px solid var(--eb-primary) !important; }
+.eb-button-pill { background: var(--eb-primary); color: #fff; border-radius: 999px; }
+
+/* 핫스팟 */
+.eb-hotspot { background: transparent; }
+.eb-hotspot:hover { background: color-mix(in srgb, var(--eb-primary) 12%, transparent); outline: 2px dashed color-mix(in srgb, var(--eb-primary) 50%, transparent); border-radius: 6px; }
+.eb-hotspot-dot { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px; border-radius: 999px; background: var(--eb-primary); box-shadow: 0 0 0 6px color-mix(in srgb, var(--eb-primary) 30%, transparent); animation: eb-pulse 1.8s infinite; }
+
+.eb-embed { background: #fff; border-radius: 8px; }
+
+@keyframes eb-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--eb-primary) 45%, transparent), 0 6px 18px rgba(0,0,0,.2); }
+  50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--eb-primary) 0%, transparent), 0 6px 18px rgba(0,0,0,.2); }
+}
+
+/* 등장 애니메이션 — 뷰어가 eb-anim-ready를 켜고, 보이는 쪽에 eb-page-active를 붙이면 재생 */
+.eb-anim-ready .eb-anim { opacity: 0; }
+.eb-anim-ready .eb-page-active .eb-anim {
+  animation-duration: var(--eb-anim-dur, 600ms);
+  animation-delay: var(--eb-anim-delay, 0ms);
+  animation-fill-mode: both;
+  animation-timing-function: cubic-bezier(.2,.7,.2,1);
+}
+.eb-anim-ready .eb-page-active .eb-anim-fade { animation-name: eb-fade; }
+.eb-anim-ready .eb-page-active .eb-anim-slide-up { animation-name: eb-slide-up; }
+.eb-anim-ready .eb-page-active .eb-anim-slide-left { animation-name: eb-slide-left; }
+.eb-anim-ready .eb-page-active .eb-anim-slide-right { animation-name: eb-slide-right; }
+.eb-anim-ready .eb-page-active .eb-anim-zoom { animation-name: eb-zoom; }
+.eb-anim-ready .eb-page-active .eb-anim-bounce { animation-name: eb-bounce; }
+@keyframes eb-fade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes eb-slide-up { from { opacity: 0; translate: 0 40px } to { opacity: 1; translate: 0 0 } }
+@keyframes eb-slide-left { from { opacity: 0; translate: 60px 0 } to { opacity: 1; translate: 0 0 } }
+@keyframes eb-slide-right { from { opacity: 0; translate: -60px 0 } to { opacity: 1; translate: 0 0 } }
+@keyframes eb-zoom { from { opacity: 0; scale: .7 } to { opacity: 1; scale: 1 } }
+@keyframes eb-bounce { 0% { opacity: 0; translate: 0 -40px } 60% { opacity: 1; translate: 0 8px } 80% { translate: 0 -3px } 100% { opacity: 1; translate: 0 0 } }
+@media (prefers-reduced-motion: reduce) {
+  .eb-anim-ready .eb-anim { opacity: 1; }
+  .eb-anim-ready .eb-page-active .eb-anim { animation: none; }
+}
+@media print {
+  .eb-slide-nav, .eb-slide-dots { display: none; }
+}
+
+/* 검색어 강조 */
+.eb-page mark.eb-hit { background: #ffe066; color: inherit; border-radius: 2px; }
 
 /* 본문 레이아웃 공통 */
 .eb-layout-text-1col .eb-slot-heading,

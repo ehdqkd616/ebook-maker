@@ -187,3 +187,16 @@ describe("composeImageBook", () => {
     expect(book.pages.map((p) => [p.layoutId, p.background?.imageUrl])).toEqual([["blank", "/api/files/a.jpg"], ["blank", "/api/files/b.jpg"]]);
   });
 });
+
+describe("search & toc", () => {
+  it("finds text in blocks and PDF page text, and builds the toc", async () => {
+    const { searchBook, bookToc } = await import("./index");
+    const book = composeBook({ id: "b", title: "제주 여행", bookType: "ebook", sizePreset: "A4", theme, chapters: [{ title: "첫 장", body: "한라산은 높다. 한라산 등반" }] });
+    book.pages.push({ id: "pdf", layoutId: "blank", blocks: [], searchText: "PDF 안의 한라산 이야기" });
+    const hits = searchBook(book, "한라산");
+    expect(hits.length).toBe(3);
+    expect(hits.at(-1)?.page).toBe(book.pages.length);
+    expect(bookToc(book)[0]).toMatchObject({ title: "첫 장" });
+    expect(bookToc({ ...book, toc: [{ title: "직접", page: 2, level: 1 }] })).toEqual([{ title: "직접", page: 2, level: 1 }]);
+  });
+});

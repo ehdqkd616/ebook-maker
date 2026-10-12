@@ -11,7 +11,9 @@ export function updateBlock(book: Book, pageId: string, blockId: string, fn: (b:
   return updatePage(book, pageId, (p) => ({ ...p, blocks: p.blocks.map((b) => (b.id === blockId ? fn(b) : b)) }));
 }
 
-export type NewBlockKind = "heading" | "paragraph" | "list" | "quote" | "image" | "rect" | "ellipse" | "line" | "link";
+export type NewBlockKind =
+  | "heading" | "paragraph" | "list" | "quote" | "image" | "rect" | "ellipse" | "line" | "link"
+  | "video" | "audio" | "slideshow" | "product" | "button" | "hotspot" | "embed";
 
 export const NEW_BLOCK_LABELS: Record<NewBlockKind, string> = {
   heading: "제목",
@@ -23,6 +25,13 @@ export const NEW_BLOCK_LABELS: Record<NewBlockKind, string> = {
   ellipse: "원",
   line: "선",
   link: "링크",
+  video: "동영상",
+  audio: "오디오",
+  slideshow: "슬라이드쇼",
+  product: "상품 태그",
+  button: "버튼",
+  hotspot: "핫스팟(클릭 영역)",
+  embed: "웹 삽입",
 };
 
 /** 페이지 가운데에 새 블록을 만든다 */
@@ -48,6 +57,20 @@ export function makeBlock(kind: NewBlockKind, book: Book): Block {
       return { ...box(W * 0.5, 4), type: "shape", data: { kind: "line" } };
     case "link":
       return { ...box(W * 0.4, 32), type: "link", data: { text: "링크 텍스트", href: "https://" } };
+    case "video":
+      return { ...box(W * 0.7, W * 0.7 * 0.5625), type: "video", data: { src: "" } };
+    case "audio":
+      return { ...box(W * 0.5, 56), type: "audio", data: { src: "", title: "오디오 재생" } };
+    case "slideshow":
+      return { ...box(W * 0.7, H * 0.35), type: "slideshow", data: { images: [], fit: "cover", autoplay: 0 } };
+    case "product":
+      return { ...box(48, 48), type: "product", data: { name: "상품 이름", price: "₩10,000", description: "상품 설명을 적어 주세요.", buttonText: "구매하기" } };
+    case "button":
+      return { ...box(W * 0.3, 52), type: "button", data: { text: "자세히 보기", variant: "solid" }, action: { type: "url", href: "https://" } };
+    case "hotspot":
+      return { ...box(W * 0.3, H * 0.15), type: "hotspot", data: { pulse: false }, action: { type: "popup", title: "제목", text: "눌렀을 때 보여 줄 내용" } };
+    case "embed":
+      return { ...box(W * 0.8, H * 0.35), type: "embed", data: { url: "https://" } };
   }
 }
 
