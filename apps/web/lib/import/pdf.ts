@@ -6,7 +6,6 @@
 // 멈춘다. legacy 빌드는 이를 폴리필로 채워 넣어 준다.
 import type { PDFDocumentProxy } from "pdfjs-dist/legacy/build/pdf.mjs";
 
-export const MAX_PDF_BYTES = 100 * 1024 * 1024;
 export const MAX_PDF_PAGES = 200;
 
 async function pdfjs() {
@@ -18,7 +17,6 @@ async function pdfjs() {
 }
 
 export async function openPdf(file: File): Promise<PDFDocumentProxy> {
-  if (file.size > MAX_PDF_BYTES) throw new Error("PDF는 100MB까지 가져올 수 있어요.");
   const { getDocument } = await pdfjs();
   try {
     return await getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
