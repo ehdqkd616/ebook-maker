@@ -1,30 +1,68 @@
 @import "tailwindcss";
 @import "@ebook/renderer/styles.css";
 
+/* 디자인 기준: 차분한 바탕 + 보라 계열 브랜드 색 하나, 얇은 테두리와 부드러운 그림자 */
+@theme {
+  --font-sans: "Pretendard Variable", Pretendard, "Noto Sans KR", system-ui, sans-serif;
+
+  --color-brand-50: #f3f1ff;
+  --color-brand-100: #e8e4ff;
+  --color-brand-200: #d3ccff;
+  --color-brand-300: #b3a6ff;
+  --color-brand-400: #9179fb;
+  --color-brand-500: #7655f4;
+  --color-brand-600: #6339e6;
+  --color-brand-700: #532bc8;
+  --color-brand-800: #4526a2;
+  --color-brand-900: #3a2380;
+  --color-ink: #14121f;
+  --color-canvas: #f6f5fa;
+
+  --shadow-soft: 0 1px 2px rgb(20 18 31 / 0.04), 0 6px 20px -8px rgb(20 18 31 / 0.10);
+  --shadow-lift: 0 2px 6px rgb(20 18 31 / 0.06), 0 22px 48px -18px rgb(20 18 31 / 0.30);
+  --shadow-book: 0 1px 2px rgb(0 0 0 / 0.10), 0 10px 24px -6px rgb(20 18 31 / 0.28), 0 30px 60px -30px rgb(20 18 31 / 0.35);
+}
+
 body {
-  font-family: "Pretendard Variable", Pretendard, "Noto Sans KR", system-ui, sans-serif;
+  background: var(--color-canvas);
+  color: var(--color-ink);
   word-break: keep-all;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-brand-200);
 }
 
 /* 다른 클래스에서 @apply로 재사용하려면 @utility여야 한다 (Tailwind v4) */
 @utility btn {
-  @apply inline-flex items-center justify-center gap-1 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex items-center justify-center gap-1.5 rounded-[10px] border border-black/10 bg-white px-3.5 py-2 text-sm font-medium whitespace-nowrap text-neutral-800 shadow-[0_1px_2px_rgb(0_0_0/0.05)] transition hover:border-black/15 hover:bg-neutral-50 active:translate-y-px disabled:pointer-events-none disabled:opacity-40;
 }
 @utility banner {
-  @apply rounded-lg px-3 py-2 text-sm;
+  @apply rounded-xl px-3.5 py-2.5 text-sm;
 }
 
 @layer components {
-  .card { @apply rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm; }
-  .field { @apply flex flex-col gap-1.5 text-sm font-medium text-neutral-700; }
-  .input { @apply w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-base font-normal text-neutral-900 outline-none focus:border-neutral-900 focus:ring-2 focus:ring-neutral-900/10; }
-  .btn-primary { @apply inline-flex items-center justify-center rounded-lg bg-neutral-900 px-4 py-2.5 font-medium text-white hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-50; }
-  .btn-danger { @apply btn border-red-200 text-red-700 hover:bg-red-50; }
-  .banner-error { @apply banner bg-red-50 text-red-700; }
-  .banner-warn { @apply banner bg-amber-50 text-amber-800; }
-  .banner-ok { @apply banner bg-emerald-50 text-emerald-700; }
+  .card { @apply rounded-2xl border border-black/[0.06] bg-white p-6 shadow-soft; }
+  .field { @apply flex flex-col gap-1.5 text-[13px] font-medium text-neutral-700; }
+  .input { @apply w-full rounded-[10px] border border-black/10 bg-white px-3 py-2 text-[15px] font-normal text-ink shadow-[0_1px_2px_rgb(0_0_0/0.03)] transition outline-none placeholder:text-neutral-400 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/15; }
+  .btn-primary { @apply inline-flex items-center justify-center gap-1.5 rounded-[10px] bg-brand-600 px-4 py-2.5 font-semibold whitespace-nowrap text-white shadow-[0_1px_2px_rgb(0_0_0/0.15),inset_0_1px_0_rgb(255_255_255/0.18)] transition hover:bg-brand-700 active:translate-y-px disabled:pointer-events-none disabled:opacity-50; }
+  .btn-dark { @apply inline-flex items-center justify-center gap-1.5 rounded-[10px] bg-ink px-4 py-2.5 font-semibold whitespace-nowrap text-white shadow-[0_1px_2px_rgb(0_0_0/0.2)] transition hover:bg-neutral-800 active:translate-y-px disabled:opacity-50; }
+  .btn-ghost { @apply inline-flex items-center justify-center gap-1.5 rounded-[10px] px-2.5 py-2 text-sm font-medium text-neutral-600 transition hover:bg-black/5 hover:text-ink disabled:pointer-events-none disabled:opacity-35; }
+  .btn-danger { @apply btn border-red-200 text-red-600 hover:border-red-300 hover:bg-red-50; }
+  .icon-btn { @apply inline-grid size-9 place-items-center rounded-[10px] text-neutral-600 transition hover:bg-black/5 hover:text-ink disabled:pointer-events-none disabled:opacity-30; }
+  .banner-error { @apply banner border border-red-100 bg-red-50 text-red-700; }
+  .banner-warn { @apply banner border border-amber-100 bg-amber-50 text-amber-800; }
+  .banner-ok { @apply banner border border-emerald-100 bg-emerald-50 text-emerald-700; }
   .muted { @apply text-neutral-500; }
+  .eyebrow { @apply text-xs font-semibold tracking-[0.08em] text-brand-600 uppercase; }
+  .chip { @apply inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold text-neutral-600; }
+  .seg { @apply inline-flex rounded-[10px] bg-neutral-100 p-0.5; }
+  .seg > button { @apply rounded-[8px] px-2.5 py-1 text-sm font-medium text-neutral-500 transition hover:text-ink; }
+  .seg > button[aria-pressed="true"] { @apply bg-white text-ink shadow-[0_1px_2px_rgb(0_0_0/0.08)]; }
   .grid-table { @apply w-full text-left text-sm; }
-  .grid-table th { @apply border-b border-neutral-200 px-2 py-2 font-medium text-neutral-500; }
-  .grid-table td { @apply border-b border-neutral-100 px-2 py-2 align-top; }
+  .grid-table th { @apply border-b border-black/[0.06] px-2 py-2 text-xs font-semibold tracking-wide text-neutral-500; }
+  .grid-table td { @apply border-b border-black/[0.04] px-2 py-2.5 align-top; }
+  .dot-grid { background-image: radial-gradient(rgb(20 18 31 / 0.09) 1px, transparent 1px); background-size: 18px 18px; }
+  .glass { @apply border-black/[0.06] bg-white/75 backdrop-blur-xl; }
 }

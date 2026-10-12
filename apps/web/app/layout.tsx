@@ -23,7 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Noto+Serif+KR:wght@400;600;700&display=swap"
         />
       </head>
-      <body className="bg-neutral-100 text-neutral-900 antialiased">{children}</body>
+      <body className="min-h-dvh bg-canvas text-ink antialiased">{children}</body>
     </html>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Plus } from "lucide-react";
 import { createPage, LAYOUT_LIST } from "@ebook/layouts";
 import type { Book, LayoutId } from "@ebook/schema";
 import { PageThumb } from "@/components/PageThumb";
@@ -31,10 +32,10 @@ export function PageList({
   const thumbW = landscape ? 150 : 112;
 
   return (
-    <aside className="relative flex w-48 shrink-0 flex-col border-r border-neutral-200 bg-white">
-      <div className="flex items-center justify-between border-b border-neutral-200 px-3 py-2.5 text-sm">
-        <span className="font-medium">페이지</span>
-        <span className="text-neutral-500 tabular-nums">{book.pages.length}</span>
+    <aside className="relative flex w-48 shrink-0 flex-col border-r border-black/[0.06] bg-white">
+      <div className="flex items-center justify-between px-4 pt-3.5 pb-1 text-sm">
+        <span className="font-semibold">페이지</span>
+        <span className="chip tabular-nums">{book.pages.length}</span>
       </div>
       <ol className="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto px-2 py-3">
         {book.pages.map((p, i) => (
@@ -63,14 +64,14 @@ export function PageList({
             }}
             className="group relative w-full"
           >
-            {dropAt === i && <div className="absolute -top-1 right-2 left-2 h-0.5 rounded bg-blue-600" />}
+            {dropAt === i && <div className="absolute -top-1 right-2 left-2 h-0.5 rounded bg-brand-600" />}
             <button
               type="button"
               onClick={() => onSelect(i)}
-              className={`flex w-full flex-col items-center gap-1 rounded-lg p-1.5 ${current === i ? "bg-blue-50" : "hover:bg-neutral-100"} ${dragFrom === i ? "opacity-40" : ""}`}
+              className={`flex w-full flex-col items-center gap-1 rounded-xl p-2 transition ${current === i ? "bg-brand-50" : "hover:bg-neutral-50"} ${dragFrom === i ? "opacity-40" : ""}`}
             >
-              <PageThumb book={book} page={p} index={i} width={thumbW} className={current === i ? "ring-2 ring-blue-600" : ""} />
-              <span className="text-xs text-neutral-500 tabular-nums">{i + 1}</span>
+              <PageThumb book={book} page={p} index={i} width={thumbW} className={`rounded-[3px] ${current === i ? "ring-2 ring-brand-500 ring-offset-2" : ""}`} />
+              <span className={`text-xs tabular-nums ${current === i ? "font-semibold text-brand-700" : "text-neutral-400"}`}>{i + 1}</span>
             </button>
             <div className="absolute top-2 right-2 hidden flex-col gap-1 group-hover:flex">
               <IconButton label="위로" disabled={i === 0} onClick={() => onMove(i, i - 1)}>↑</IconButton>
@@ -78,13 +79,13 @@ export function PageList({
               <IconButton label="복제" onClick={() => onDuplicate(i)}>⧉</IconButton>
               <IconButton label="삭제" disabled={book.pages.length <= 1} onClick={() => confirm(`${i + 1}쪽을 삭제할까요?`) && onDelete(i)}>✕</IconButton>
             </div>
-            {dropAt === i + 1 && i === book.pages.length - 1 && <div className="absolute right-2 -bottom-1 left-2 h-0.5 rounded bg-blue-600" />}
+            {dropAt === i + 1 && i === book.pages.length - 1 && <div className="absolute right-2 -bottom-1 left-2 h-0.5 rounded bg-brand-600" />}
           </li>
         ))}
       </ol>
-      <div className="border-t border-neutral-200 p-2">
+      <div className="border-t border-black/[0.06] p-2">
         <button type="button" className="btn w-full" onClick={() => setPicker((v) => !v)}>
-          + 페이지 추가
+          <Plus className="size-4" /> 페이지 추가
         </button>
       </div>
       {picker && (
@@ -112,7 +113,7 @@ function IconButton({ label, children, disabled, onClick }: { label: string; chi
         e.stopPropagation();
         onClick();
       }}
-      className="grid size-6 place-items-center rounded bg-white/95 text-xs shadow ring-1 ring-black/10 hover:bg-neutral-100 disabled:opacity-30"
+      className="grid size-6 place-items-center rounded-md bg-white/95 text-xs text-neutral-600 shadow-sm ring-1 ring-black/10 hover:bg-white hover:text-ink disabled:opacity-30"
     >
       {children}
     </button>
@@ -122,7 +123,7 @@ function IconButton({ label, children, disabled, onClick }: { label: string; chi
 function LayoutPicker({ book, onPick, onClose }: { book: Book; onPick: (id: LayoutId) => void; onClose: () => void }) {
   const samples = useMemo(() => LAYOUT_LIST.map((l) => ({ layout: l, page: createPage(l.id, book.size) })), [book.size]);
   return (
-    <div className="absolute bottom-14 left-2 z-30 w-[22rem] rounded-xl border border-neutral-200 bg-white p-3 shadow-2xl">
+    <div className="absolute bottom-14 left-2 z-30 w-[22rem] rounded-2xl border border-black/[0.06] bg-white p-3 shadow-lift">
       <div className="mb-2 flex items-center justify-between text-sm">
         <span className="font-medium">어떤 페이지를 넣을까요?</span>
         <button type="button" className="text-neutral-500 hover:text-neutral-900" onClick={onClose} aria-label="닫기">✕</button>

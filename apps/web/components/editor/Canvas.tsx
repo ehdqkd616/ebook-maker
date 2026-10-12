@@ -187,14 +187,14 @@ export function Canvas({
   return (
     <div
       ref={wrapRef}
-      className="relative min-h-0 min-w-0 flex-1 overflow-auto bg-neutral-200"
+      className="dot-grid relative min-h-0 min-w-0 flex-1 overflow-auto bg-[#eeedf3]"
       onPointerDown={() => {
         onSelect(null);
         onEdit(null);
       }}
     >
       <div className="grid min-h-full min-w-full place-items-center p-8" style={{ width: "max-content", height: "max-content" }}>
-        <div className="relative shadow-xl" style={{ width: W * s, height: H * s }} onPointerMove={onPointerMove} onPointerUp={endDrag} onPointerCancel={endDrag}>
+        <div className="relative shadow-lift ring-1 ring-black/5" style={{ width: W * s, height: H * s }} onPointerMove={onPointerMove} onPointerUp={endDrag} onPointerCancel={endDrag}>
           <PageRenderer page={page} theme={book.theme} size={book.size} scale={s} pageNumber={showsPageNumber(page.layoutId) ? index + 1 : undefined} />
 
           <div className="absolute inset-0" style={{ cursor: drag ? (drag.mode === "move" ? "grabbing" : HANDLE_CURSOR[drag.mode]) : undefined }}>
@@ -208,7 +208,7 @@ export function Canvas({
                   style={{
                     ...box,
                     transform: b.rotation ? `rotate(${b.rotation}deg)` : undefined,
-                    outline: selected ? "2px solid #2563eb" : hover === b.id ? "1px dashed #2563eb" : undefined,
+                    outline: selected ? "2px solid #6339e6" : hover === b.id ? "1px dashed #6339e6" : undefined,
                     outlineOffset: 1,
                     cursor: editingId === b.id ? "text" : "move",
                   }}
@@ -225,7 +225,7 @@ export function Canvas({
                     HANDLES.filter((h) => !(b.h * s < 16 && (h.includes("n") || h.includes("s")) && h.length === 2)).map((h) => (
                       <span
                         key={h}
-                        className="absolute size-2.5 rounded-sm border border-blue-600 bg-white"
+                        className="absolute size-2.5 rounded-full border-[1.5px] border-brand-600 bg-white shadow-sm"
                         style={{ left: `calc(${HANDLE_POS[h][0] * 100}% - 5px)`, top: `calc(${HANDLE_POS[h][1] * 100}% - 5px)`, cursor: HANDLE_CURSOR[h] }}
                         onPointerDown={(e) => startDrag(e, b, h)}
                       />
@@ -235,10 +235,10 @@ export function Canvas({
             })}
 
             {guides.x.map((x, i) => (
-              <div key={`gx${i}`} className="pointer-events-none absolute top-0 bottom-0 w-px bg-pink-500" style={{ left: x * s }} />
+              <div key={`gx${i}`} className="pointer-events-none absolute top-0 bottom-0 w-px bg-fuchsia-500" style={{ left: x * s }} />
             ))}
             {guides.y.map((y, i) => (
-              <div key={`gy${i}`} className="pointer-events-none absolute right-0 left-0 h-px bg-pink-500" style={{ top: y * s }} />
+              <div key={`gy${i}`} className="pointer-events-none absolute right-0 left-0 h-px bg-fuchsia-500" style={{ top: y * s }} />
             ))}
 
             {editing && <InlineEditor key={editing.id} block={editing} scale={s} pageId={page.id} update={update} onDone={() => onEdit(null)} />}
@@ -261,7 +261,7 @@ function InlineEditor({ block, scale, pageId, update, onDone }: { block: Block; 
   return (
     <textarea
       ref={ref}
-      className="absolute z-10 resize-none rounded-sm bg-white/95 p-0 shadow-lg outline-2 outline-blue-600"
+      className="absolute z-10 resize-none rounded-sm bg-white/95 p-0 shadow-lift outline-2 outline-brand-600"
       style={{
         left: block.x * scale,
         top: block.y * scale,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ListTree, Maximize, Minimize } from "lucide-react";
 import type { PageFlip } from "page-flip";
 import { showsPageNumber } from "@ebook/layouts";
 import { PageRenderer } from "@ebook/renderer";
@@ -122,72 +123,44 @@ export function FlipbookViewer({ book, backHref }: { book: Book; backHref?: stri
   }, []);
 
   return (
-    <div ref={rootRef} className="flex h-dvh flex-col bg-neutral-800">
+    <div ref={rootRef} className="flex h-dvh flex-col bg-[radial-gradient(120%_80%_at_50%_0%,#3b3550,#16141f_70%)]">
       <div ref={stageRef} className="relative min-h-0 flex-1" style={{ padding: PADDING }} />
 
-      <div
-        className="flex items-center justify-center gap-2 border-t border-neutral-700 bg-neutral-900 px-3 text-sm text-neutral-200 sm:gap-4"
-        style={{ height: TOOLBAR_HEIGHT }}
-      >
-        {backHref && (
-          <a href={backHref} className="mr-auto rounded px-3 py-1.5 hover:bg-neutral-700">← 편집으로</a>
-        )}
-        <button
-          type="button"
-          onClick={() => flipRef.current?.flip(0)}
-          disabled={current === 0}
-          className="hidden rounded px-2 py-1.5 hover:bg-neutral-700 disabled:opacity-40 sm:inline"
-          aria-label="처음으로"
-        >
-          ⏮
-        </button>
-        <button
-          type="button"
-          onClick={() => flipRef.current?.flipPrev()}
-          disabled={current === 0}
-          className="rounded px-3 py-1.5 hover:bg-neutral-700 disabled:opacity-40"
-          aria-label="이전 페이지"
-        >
-          ← 이전
-        </button>
-        <span className="min-w-24 text-center tabular-nums">
-          {current + 1} / {total}
-        </span>
-        <button
-          type="button"
-          onClick={() => flipRef.current?.flipNext()}
-          disabled={current >= total - 1}
-          className="rounded px-3 py-1.5 hover:bg-neutral-700 disabled:opacity-40"
-          aria-label="다음 페이지"
-        >
-          다음 →
-        </button>
-        <button
-          type="button"
-          onClick={() => flipRef.current?.flip(total - 1)}
-          disabled={current >= total - 1}
-          className="hidden rounded px-2 py-1.5 hover:bg-neutral-700 disabled:opacity-40 sm:inline"
-          aria-label="끝으로"
-        >
-          ⏭
-        </button>
-        {chapters.length > 0 && (
-          <select
-            aria-label="목차로 이동"
-            className="max-w-40 rounded bg-neutral-800 px-2 py-1.5 text-neutral-200"
-            value=""
-            onChange={(e) => e.target.value && flipRef.current?.flip(Number(e.target.value))}
-          >
-            <option value="">목차</option>
-            {chapters.map((c) => (
-              <option key={c.index} value={c.index}>{c.title}</option>
-            ))}
-          </select>
-        )}
-        <button type="button" onClick={toggleFullscreen} className="rounded px-2 py-1.5 hover:bg-neutral-700" aria-label="전체 화면">
-          {fullscreen ? "⤡" : "⛶"}
-        </button>
-        <span className={`hidden max-w-60 truncate text-neutral-400 lg:inline ${backHref ? "ml-auto" : ""}`}>{book.title}</span>
+      <div className="flex shrink-0 justify-center px-3 pb-3" style={{ height: TOOLBAR_HEIGHT + 12 }}>
+        <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-white/[0.07] px-2 text-sm text-white/85 shadow-2xl backdrop-blur-xl">
+          {backHref && (
+            <>
+              <a href={backHref} className="flex items-center gap-1.5 rounded-xl px-3 py-2 hover:bg-white/10"><ArrowLeft className="size-4" /> 편집</a>
+              <span className="mx-1 h-5 w-px bg-white/15" />
+            </>
+          )}
+          <ViewerButton label="처음으로" disabled={current === 0} onClick={() => flipRef.current?.flip(0)} className="hidden sm:grid"><ChevronsLeft className="size-[18px]" /></ViewerButton>
+          <ViewerButton label="이전 페이지" disabled={current === 0} onClick={() => flipRef.current?.flipPrev()}><ChevronLeft className="size-5" /></ViewerButton>
+          <span className="min-w-20 text-center font-medium tabular-nums">
+            {current + 1} <span className="text-white/45">/ {total}</span>
+          </span>
+          <ViewerButton label="다음 페이지" disabled={current >= total - 1} onClick={() => flipRef.current?.flipNext()}><ChevronRight className="size-5" /></ViewerButton>
+          <ViewerButton label="끝으로" disabled={current >= total - 1} onClick={() => flipRef.current?.flip(total - 1)} className="hidden sm:grid"><ChevronsRight className="size-[18px]" /></ViewerButton>
+          <span className="mx-1 h-5 w-px bg-white/15" />
+          {chapters.length > 0 && (
+            <label className="relative flex items-center rounded-xl hover:bg-white/10">
+              <ListTree className="pointer-events-none absolute left-2.5 size-4" />
+              <select
+                aria-label="목차로 이동"
+                className="max-w-36 cursor-pointer appearance-none bg-transparent py-2 pr-3 pl-8 text-white/85 outline-none [&>option]:text-ink"
+                value=""
+                onChange={(e) => e.target.value && flipRef.current?.flip(Number(e.target.value))}
+              >
+                <option value="">목차</option>
+                {chapters.map((c) => (
+                  <option key={c.index} value={c.index}>{c.title}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          <ViewerButton label="전체 화면" onClick={toggleFullscreen}>{fullscreen ? <Minimize className="size-[18px]" /> : <Maximize className="size-[18px]" />}</ViewerButton>
+          <span className="ml-1 hidden max-w-48 truncate pr-2 text-white/45 lg:inline">{book.title}</span>
+        </div>
       </div>
 
       <div ref={templateRef} hidden aria-hidden>
@@ -205,5 +178,13 @@ export function FlipbookViewer({ book, backHref }: { book: Book; backHref?: stri
           ))}
       </div>
     </div>
+  );
+}
+
+function ViewerButton({ label, children, disabled, onClick, className = "grid" }: { label: string; children: React.ReactNode; disabled?: boolean; onClick: () => void; className?: string }) {
+  return (
+    <button type="button" aria-label={label} title={label} disabled={disabled} onClick={onClick} className={`${className} size-9 place-items-center rounded-xl transition hover:bg-white/10 disabled:opacity-30`}>
+      {children}
+    </button>
   );
 }

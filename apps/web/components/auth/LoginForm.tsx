@@ -26,8 +26,11 @@ export function LoginForm({ next }: { next: string }) {
   }
 
   return (
-    <form className="card flex flex-col gap-4" onSubmit={submit}>
-      <h1 className="text-2xl font-bold">로그인</h1>
+    <form className="card flex flex-col gap-5 p-8" onSubmit={submit}>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">다시 오신 걸 환영해요</h1>
+        <p className="muted mt-1 text-sm">아이디와 비밀번호로 로그인하세요.</p>
+      </div>
       <label className="field">
         아이디
         <input className="input" autoComplete="username" autoCapitalize="none" spellCheck={false} required value={form.username}
@@ -46,7 +49,7 @@ export function LoginForm({ next }: { next: string }) {
       )}
       <button className="btn-primary" disabled={busy}>{busy ? "로그인 중…" : "로그인"}</button>
       <p className="muted text-center text-sm">
-        계정이 없나요? <Link href="/signup" className="font-medium text-neutral-900 underline">회원가입</Link>
+        계정이 없나요? <Link href="/signup" className="font-semibold text-brand-700 hover:underline">회원가입</Link>
       </p>
     </form>
   );

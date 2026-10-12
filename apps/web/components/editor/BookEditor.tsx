@@ -1,6 +1,29 @@
 "use client";
 
 import Link from "next/link";
+import {
+  AlertTriangle,
+  Circle,
+  Cloud,
+  CloudOff,
+  Eye,
+  Heading,
+  Image as ImageIcon,
+  Link as LinkIcon,
+  List,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Minus,
+  Printer,
+  Quote,
+  Redo2,
+  Share2,
+  Square,
+  Type,
+  Undo2,
+} from "lucide-react";
+import { LogoMark } from "@/components/Logo";
 import { useCallback, useEffect, useState } from "react";
 import { moveOverflowToNextPage, overflowingBlocks } from "@ebook/layouts";
 import type { Book, LayoutId } from "@ebook/schema";
@@ -38,7 +61,17 @@ const SAVE_LABEL: Record<SaveState, string> = {
   conflict: "충돌",
 };
 
-const ADD_GROUPS: NewBlockKind[][] = [["heading", "paragraph", "list", "quote"], ["image"], ["rect", "ellipse", "line"], ["link"]];
+const INSERT_BUTTONS: { kind: NewBlockKind; icon: typeof Type }[] = [
+  { kind: "heading", icon: Heading },
+  { kind: "paragraph", icon: Type },
+  { kind: "list", icon: List },
+  { kind: "quote", icon: Quote },
+  { kind: "image", icon: ImageIcon },
+  { kind: "rect", icon: Square },
+  { kind: "ellipse", icon: Circle },
+  { kind: "line", icon: Minus },
+  { kind: "link", icon: LinkIcon },
+];
 
 const ZOOMS = ["fit", 0.5, 0.75, 1, 1.25, 1.5] as const;
 
@@ -61,7 +94,6 @@ export function BookEditor({
   const [zoom, setZoom] = useState<(typeof ZOOMS)[number]>("fit");
   const [publication, setPublication] = useState<Publication>(initialPublication);
   const [publishOpen, setPublishOpen] = useState(false);
-  const [addOpen, setAddOpen] = useState(false);
   const [notice, setNotice] = useState("");
 
   const index = Math.min(pageIndex, book.pages.length - 1);
@@ -100,7 +132,6 @@ export function BookEditor({
   }
 
   function add(kind: NewBlockKind) {
-    setAddOpen(false);
     const b = makeBlock(kind, book);
     update((bk) => addBlock(bk, page.id, b));
     select(b.id);
@@ -184,61 +215,67 @@ export function BookEditor({
   return (
     <div className="flex h-dvh flex-col bg-neutral-100">
       {/* 도구 막대 */}
-      <header className="flex h-14 shrink-0 items-center gap-2 border-b border-neutral-200 bg-white px-3">
-        <Link href="/" className="btn px-2" title="내 책으로">←</Link>
-        <div className="flex min-w-0 flex-col leading-tight">
-          <span className="truncate font-semibold">{book.title || "제목 없음"}</span>
+      <header className="relative z-20 flex h-14 shrink-0 items-center gap-1.5 border-b border-black/[0.06] bg-white px-2.5">
+        <Link href="/" className="icon-btn" title="내 책으로" aria-label="내 책으로">
+          <LogoMark size={26} />
+        </Link>
+        <div className="flex min-w-0 max-w-[16rem] flex-col leading-tight">
+          <span className="truncate text-[15px] font-semibold">{book.title || "제목 없음"}</span>
           <span
-            className={`text-xs ${saveState === "error" || saveState === "conflict" ? "text-red-600" : "text-neutral-500"}`}
+            className={`flex items-center gap-1 text-xs ${saveState === "error" || saveState === "conflict" ? "text-red-600" : "text-neutral-400"}`}
             title={saveError || undefined}
           >
+            {saveState === "saving" ? <Loader2 className="size-3 animate-spin" /> : saveState === "saved" ? <Cloud className="size-3" /> : saveState === "dirty" ? <Cloud className="size-3 opacity-50" /> : <CloudOff className="size-3" />}
             {SAVE_LABEL[saveState]}
           </span>
         </div>
 
-        <div className="mx-2 h-6 w-px bg-neutral-200" />
-        <button type="button" className="btn px-2.5 text-base" disabled={!canUndo} onClick={undo} title="되돌리기 (Ctrl+Z)" aria-label="되돌리기">↶</button>
-        <button type="button" className="btn px-2.5 text-base" disabled={!canRedo} onClick={redo} title="다시 하기 (Ctrl+Shift+Z)" aria-label="다시 하기">↷</button>
+        <div className="mx-1.5 h-6 w-px bg-black/[0.08]" />
+        <button type="button" className="icon-btn" disabled={!canUndo} onClick={undo} title="되돌리기 (Ctrl+Z)" aria-label="되돌리기"><Undo2 className="size-[18px]" /></button>
+        <button type="button" className="icon-btn" disabled={!canRedo} onClick={redo} title="다시 하기 (Ctrl+Shift+Z)" aria-label="다시 하기"><Redo2 className="size-[18px]" /></button>
+        <div className="mx-1.5 h-6 w-px bg-black/[0.08]" />
 
-        <div className="relative">
-          <button type="button" className="btn" onClick={() => setAddOpen((v) => !v)}>+ 블록 추가</button>
-          {addOpen && (
-            <div className="absolute top-10 left-0 z-30 flex w-56 flex-col gap-1 rounded-xl border border-neutral-200 bg-white p-2 shadow-xl" onMouseLeave={() => setAddOpen(false)}>
-              {ADD_GROUPS.map((g, gi) => (
-                <div key={gi} className={`grid grid-cols-2 gap-1 ${gi ? "border-t border-neutral-100 pt-1" : ""}`}>
-                  {g.map((k) => (
-                    <button key={k} type="button" className="rounded-lg px-2 py-1.5 text-left text-sm hover:bg-neutral-100" onClick={() => add(k)}>
-                      {NEW_BLOCK_LABELS[k]}
-                    </button>
-                  ))}
-                </div>
-              ))}
-            </div>
-          )}
+        {/* 블록 넣기 */}
+        <div className="hidden items-center gap-0.5 rounded-xl bg-neutral-100/80 p-0.5 md:flex" role="toolbar" aria-label="블록 넣기">
+          {INSERT_BUTTONS.map(({ kind, icon: Icon }) => (
+            <button key={kind} type="button" className="group relative grid size-8 place-items-center rounded-[9px] text-neutral-600 transition hover:bg-white hover:text-ink hover:shadow-[0_1px_2px_rgb(0_0_0/0.08)]" onClick={() => add(kind)} aria-label={`${NEW_BLOCK_LABELS[kind]} 넣기`}>
+              <Icon className="size-[17px]" />
+              <span className="pointer-events-none absolute top-full mt-2 hidden rounded-md bg-ink px-2 py-1 text-[11px] font-medium whitespace-nowrap text-white group-hover:block">{NEW_BLOCK_LABELS[kind]}</span>
+            </button>
+          ))}
         </div>
 
-        <select className="rounded-lg border border-neutral-300 bg-white px-2 py-1.5 text-sm" value={String(zoom)} onChange={(e) => setZoom(e.target.value === "fit" ? "fit" : (Number(e.target.value) as (typeof ZOOMS)[number]))} aria-label="확대">
+        <select
+          className="ml-1.5 rounded-[9px] border-0 bg-transparent px-2 py-1.5 text-sm font-medium text-neutral-600 hover:bg-black/5"
+          value={String(zoom)}
+          onChange={(e) => setZoom(e.target.value === "fit" ? "fit" : (Number(e.target.value) as (typeof ZOOMS)[number]))}
+          aria-label="확대"
+        >
           {ZOOMS.map((z) => <option key={z} value={z}>{z === "fit" ? "화면 맞춤" : `${z * 100}%`}</option>)}
         </select>
 
-        <div className="ml-auto flex items-center gap-2">
-          {notice && <span className="hidden text-sm text-neutral-600 md:inline">{notice}</span>}
-          <button type="button" className="btn" onClick={() => openAfterSave(`/books/${book.id}/preview`)}>미리보기</button>
-          <button type="button" className="btn" onClick={() => openAfterSave(`/books/${book.id}/print`)}>PDF·인쇄</button>
-          <button type="button" className="btn-primary py-1.5 text-sm" onClick={() => setPublishOpen(true)}>
-            {publication ? "공유" : "퍼블리시"}
+        <div className="ml-auto flex items-center gap-1.5">
+          {notice && <span className="hidden max-w-60 truncate text-sm text-neutral-500 lg:inline">{notice}</span>}
+          <button type="button" className="btn-ghost" onClick={() => openAfterSave(`/books/${book.id}/preview`)} title="플립북으로 미리보기">
+            <Eye className="size-4" /> <span className="hidden sm:inline">미리보기</span>
+          </button>
+          <button type="button" className="btn-ghost" onClick={() => openAfterSave(`/books/${book.id}/print`)} title="PDF로 저장·인쇄">
+            <Printer className="size-4" /> <span className="hidden sm:inline">PDF</span>
+          </button>
+          <button type="button" className="btn-primary ml-1 py-2 text-sm" onClick={() => setPublishOpen(true)}>
+            <Share2 className="size-4" /> {publication ? "공유" : "퍼블리시"}
           </button>
         </div>
       </header>
 
       {saveState === "conflict" && (
-        <div className="banner-error flex items-center justify-between rounded-none">
+        <div className="banner-error flex items-center justify-between rounded-none border-x-0">
           <span>{saveError}</span>
           <button type="button" className="btn" onClick={() => window.location.reload()}>새로고침</button>
         </div>
       )}
       {saveState === "error" && (
-        <div className="banner-warn flex items-center justify-between rounded-none">
+        <div className="banner-warn flex items-center justify-between rounded-none border-x-0">
           <span>저장하지 못했습니다: {saveError}</span>
           <button type="button" className="btn" onClick={() => void save()}>다시 저장</button>
         </div>
@@ -282,6 +319,7 @@ export function BookEditor({
           />
           {overflow && (
             <div className="flex shrink-0 items-center justify-center gap-3 border-t border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              <AlertTriangle className="size-4" />
               <span>본문이 페이지 아래로 넘쳤어요.</span>
               <button
                 type="button"
@@ -295,11 +333,11 @@ export function BookEditor({
               </button>
             </div>
           )}
-          <div className="flex h-10 shrink-0 items-center justify-center gap-3 border-t border-neutral-200 bg-white text-sm text-neutral-600">
-            <button type="button" className="rounded px-2 py-1 hover:bg-neutral-100 disabled:opacity-30" disabled={index === 0} onClick={() => goPage(index - 1)}>‹ 이전</button>
-            <span className="tabular-nums">{index + 1} / {book.pages.length}</span>
-            <button type="button" className="rounded px-2 py-1 hover:bg-neutral-100 disabled:opacity-30" disabled={index >= book.pages.length - 1} onClick={() => goPage(index + 1)}>다음 ›</button>
-            <span className="hidden text-xs text-neutral-400 lg:inline">더블클릭: 글 고치기 · 드래그: 이동 · Alt+드래그: 맞춤 끄기 · Delete: 삭제</span>
+          <div className="flex h-11 shrink-0 items-center justify-center gap-2 border-t border-black/[0.06] bg-white text-sm text-neutral-600">
+            <button type="button" className="icon-btn size-8" disabled={index === 0} onClick={() => goPage(index - 1)} aria-label="이전 페이지"><ChevronLeft className="size-4" /></button>
+            <span className="min-w-14 text-center font-medium tabular-nums">{index + 1} <span className="text-neutral-400">/ {book.pages.length}</span></span>
+            <button type="button" className="icon-btn size-8" disabled={index >= book.pages.length - 1} onClick={() => goPage(index + 1)} aria-label="다음 페이지"><ChevronRight className="size-4" /></button>
+            <span className="ml-4 hidden text-xs text-neutral-400 xl:inline">더블클릭 글 고치기 · 드래그 이동 · Alt 맞춤 끄기 · Delete 삭제</span>
           </div>
         </main>
 

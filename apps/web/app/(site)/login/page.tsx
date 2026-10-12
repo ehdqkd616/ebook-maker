@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/auth/LoginForm";
+import { AuthShell } from "@/components/auth/AuthShell";
 import { getCurrentUser } from "@/lib/server/auth";
 import { safeNext } from "@/lib/format";
 
@@ -9,8 +10,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const next = safeNext((await searchParams).next);
   if (await getCurrentUser()) redirect(next);
   return (
-    <div className="mx-auto max-w-md px-4 py-16">
+    <AuthShell>
       <LoginForm next={next} />
-    </div>
+    </AuthShell>
   );
 }

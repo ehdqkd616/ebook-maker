@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import { FileUp, Layers, Loader2, Lock, MousePointerClick, UploadCloud } from "lucide-react";
 import { BOOK_TYPE_INFO, composeImageBook, getThemePreset, sizeForAspect } from "@ebook/layouts";
 import { api, ApiError } from "@/lib/api";
 import { firstPageSize, MAX_PDF_PAGES, openPdf, renderPdfPages } from "@/lib/import/pdf";
@@ -14,7 +15,7 @@ const UPLOAD_CONCURRENCY = 3;
 
 export function PdfToFlipbook({ title }: { title: string }) {
   const router = useRouter();
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
   const stop = useRef(false);
   const [progress, setProgress] = useState<{ done: number; total: number; label: string } | null>(null);
   const [error, setError] = useState("");
@@ -77,37 +78,78 @@ export function PdfToFlipbook({ title }: { title: string }) {
   const pct = progress && progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
-    <div className="card flex flex-col gap-3 border-neutral-900/10 bg-gradient-to-r from-neutral-900 to-neutral-700 p-5 text-white sm:flex-row sm:items-center">
-      <div className="flex-1">
-        <p className="font-semibold">이미 만든 PDF가 있나요?</p>
-        <p className="mt-1 text-sm text-white/75">
-          PDF를 올리면 페이지 그대로 책장 넘기는 플립북으로 바꿔 드려요. 만든 뒤 링크·글·이미지를 더 얹을 수 있어요. (최대 {MAX_PDF_PAGES}쪽, 100MB)
-        </p>
-        {error && <p className="mt-2 rounded-lg bg-red-500/20 px-3 py-1.5 text-sm text-red-100">{error}</p>}
-      </div>
-      <button type="button" className="rounded-lg bg-white px-4 py-2.5 font-medium text-neutral-900 hover:bg-neutral-100" onClick={() => inputRef.current?.click()}>
-        PDF 올리기
-      </button>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="application/pdf,.pdf"
-        hidden
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) void convert(f);
-          e.target.value = "";
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <label
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
         }}
-      />
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          const f = e.dataTransfer.files?.[0];
+          if (!f) return;
+          if (!/\.pdf$/i.test(f.name) && f.type !== "application/pdf") return setError("PDF 파일만 올릴 수 있어요.");
+          void convert(f);
+        }}
+        className={`group relative flex min-h-[380px] cursor-pointer flex-col items-center justify-center gap-4 overflow-hidden rounded-3xl border-2 border-dashed p-10 text-center transition ${
+          dragging ? "border-brand-500 bg-brand-50" : "border-black/10 bg-white hover:border-brand-300 hover:bg-brand-50/30"
+        }`}
+      >
+        <div aria-hidden className="dot-grid absolute inset-0 opacity-60" />
+        <span className={`relative grid size-16 place-items-center rounded-2xl shadow-lift transition ${dragging ? "scale-110 bg-brand-600 text-white" : "bg-white text-brand-600 ring-1 ring-black/5 group-hover:-translate-y-1"}`}>
+          <UploadCloud className="size-7" />
+        </span>
+        <div className="relative">
+          <p className="text-xl font-semibold">PDF를 여기에 끌어다 놓으세요</p>
+          <p className="muted mt-1.5 text-sm">또는 눌러서 파일 고르기 · 최대 {MAX_PDF_PAGES}쪽, 100MB</p>
+        </div>
+        <span className="btn-primary relative mt-2">
+          <FileUp className="size-4" /> PDF 고르기
+        </span>
+        {error && <p className="banner-error relative mt-2">{error}</p>}
+        <input
+          type="file"
+          accept="application/pdf,.pdf"
+          className="sr-only"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void convert(f);
+            e.target.value = "";
+          }}
+        />
+      </label>
+
+      <aside className="flex flex-col gap-3">
+        {[
+          { icon: Layers, title: "페이지 그대로", desc: "디자인·글꼴·사진을 손대지 않고 원본 그대로 플립북 페이지로 바꿔요." },
+          { icon: MousePointerClick, title: "그 위에 덧붙이기", desc: "만든 뒤 에디터에서 링크·글·이미지를 페이지 위에 얹을 수 있어요." },
+          { icon: Lock, title: "파일은 내 브라우저에서", desc: "PDF는 브라우저 안에서 변환하고, 원본 파일은 서버에 올리지 않아요." },
+        ].map((f) => (
+          <div key={f.title} className="flex gap-3 rounded-2xl border border-black/[0.06] bg-white p-4">
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600"><f.icon className="size-4.5" /></span>
+            <div>
+              <p className="text-sm font-semibold">{f.title}</p>
+              <p className="muted mt-0.5 text-[13px] leading-relaxed">{f.desc}</p>
+            </div>
+          </div>
+        ))}
+      </aside>
 
       {progress && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4 text-neutral-900">
-          <div className="card flex w-full max-w-sm flex-col gap-4">
-            <p className="font-semibold">{progress.label}</p>
-            <div className="h-2 overflow-hidden rounded-full bg-neutral-100">
-              <div className="h-full rounded-full bg-neutral-900 transition-all" style={{ width: `${pct}%` }} />
+        <div className="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4 backdrop-blur-sm">
+          <div className="card flex w-full max-w-sm flex-col gap-5">
+            <div className="flex items-center gap-3">
+              <span className="grid size-10 place-items-center rounded-xl bg-brand-50 text-brand-600"><Loader2 className="size-5 animate-spin" /></span>
+              <div>
+                <p className="font-semibold">{progress.label}</p>
+                <p className="muted text-sm tabular-nums">{progress.total ? `${progress.done} / ${progress.total}쪽` : "잠시만요…"}</p>
+              </div>
             </div>
-            <p className="muted text-sm tabular-nums">{progress.total ? `${progress.done} / ${progress.total}쪽` : "잠시만요…"}</p>
+            <div className="h-2 overflow-hidden rounded-full bg-neutral-100">
+              <div className="h-full rounded-full bg-gradient-to-r from-brand-500 to-fuchsia-500 transition-all duration-300" style={{ width: `${Math.max(pct, 4)}%` }} />
+            </div>
             <button type="button" className="btn self-end" onClick={() => (stop.current = true)}>그만두기</button>
           </div>
         </div>

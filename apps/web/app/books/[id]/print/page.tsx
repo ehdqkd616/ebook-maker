@@ -28,9 +28,9 @@ export default async function PrintBookPage({ params }: Props) {
         .print-sheet:last-child { break-after: auto; page-break-after: auto; }
       `}</style>
       <PrintToolbar title={book.title} backHref={`/books/${id}/edit`} pages={book.pages.length} />
-      <div className="flex flex-col items-center gap-6 bg-neutral-200 py-6 print:block print:bg-white print:p-0">
+      <div className="dot-grid flex flex-col items-center gap-8 bg-[#eeedf3] py-8 print:block print:bg-white print:p-0">
         {book.pages.map((page, i) => (
-          <div key={page.id} className="print-sheet shadow-lg" style={{ width, height }}>
+          <div key={page.id} className="print-sheet shadow-lift" style={{ width, height }}>
             <PageRenderer page={page} theme={book.theme} size={book.size} pageNumber={showsPageNumber(page.layoutId) ? i + 1 : undefined} />
           </div>
         ))}

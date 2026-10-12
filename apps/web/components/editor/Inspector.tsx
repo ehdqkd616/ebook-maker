@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { AlignCenter, AlignJustify, AlignLeft, AlignRight, Bold, Italic, Underline } from "lucide-react";
 import {
   applyLayout,
   createPage,
@@ -53,15 +54,16 @@ export function Inspector({
 }) {
   const active = tab === "block" && !block ? "page" : tab;
   return (
-    <aside className="flex w-80 shrink-0 flex-col border-l border-neutral-200 bg-white">
-      <div className="flex border-b border-neutral-200 text-sm">
+    <aside className="flex w-80 shrink-0 flex-col border-l border-black/[0.06] bg-white">
+      <div className="seg m-3 mb-0 flex">
         {(["block", "page", "book"] as const).map((t) => (
           <button
             key={t}
             type="button"
             disabled={t === "block" && !block}
             onClick={() => setTab(t)}
-            className={`flex-1 py-2.5 font-medium disabled:opacity-30 ${active === t ? "border-b-2 border-neutral-900 text-neutral-900" : "text-neutral-500 hover:text-neutral-800"}`}
+            aria-pressed={active === t}
+            className="flex-1 disabled:opacity-30"
           >
             {t === "block" ? "블록" : t === "page" ? "페이지" : "책"}
           </button>
@@ -79,7 +81,7 @@ export function Inspector({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="flex flex-col gap-2.5">
-      <h3 className="text-xs font-semibold tracking-wide text-neutral-500">{title}</h3>
+      <h3 className="text-[11px] font-bold tracking-[0.06em] text-neutral-400 uppercase">{title}</h3>
       {children}
     </section>
   );
@@ -94,12 +96,12 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-const small = "w-full rounded-md border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-neutral-900";
+const small = "w-full rounded-lg border border-black/10 bg-white px-2.5 py-1.5 text-sm outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-500/15";
 
 function ColorField({ value, fallback, onChange, onReset }: { value?: string; fallback: string; onChange: (c: string) => void; onReset?: () => void }) {
   return (
     <span className="flex items-center gap-1.5">
-      <input type="color" className="h-7 w-10 cursor-pointer rounded border border-neutral-300" value={toHex6(value, fallback)} onChange={(e) => onChange(e.target.value)} />
+      <input type="color" className="h-8 w-10 cursor-pointer rounded-lg border border-black/10 bg-white p-0.5" value={toHex6(value, fallback)} onChange={(e) => onChange(e.target.value)} />
       {onReset && value && (
         <button type="button" className="text-xs text-neutral-500 underline" onClick={onReset}>기본값</button>
       )}
@@ -121,7 +123,7 @@ function BlockPanel({
   return (
     <>
       <div className="flex items-center justify-between">
-        <span className="rounded bg-neutral-100 px-2 py-0.5 text-xs font-semibold">{TYPE_LABEL[block.type]}</span>
+        <span className="chip bg-brand-50 text-brand-700">{TYPE_LABEL[block.type]}</span>
         {block.slot && <span className="text-xs text-neutral-400">레이아웃 자리: {block.slot}</span>}
       </div>
 
@@ -236,17 +238,20 @@ function BlockPanel({
               <button
                 key={a}
                 type="button"
-                className={`btn flex-1 px-0 ${block.style?.textAlign === a ? "border-neutral-900 bg-neutral-100" : ""}`}
+                className={`btn flex-1 px-0 ${block.style?.textAlign === a ? "border-brand-300 bg-brand-50 text-brand-700" : ""}`}
                 onClick={() => style("textAlign", block.style?.textAlign === a ? undefined : a)}
               >
-                {{ left: "왼쪽", center: "가운데", right: "오른쪽", justify: "양쪽" }[a]}
+                {(() => {
+                  const Icon = { left: AlignLeft, center: AlignCenter, right: AlignRight, justify: AlignJustify }[a];
+                  return <Icon className="size-4" aria-label={{ left: "왼쪽 정렬", center: "가운데 정렬", right: "오른쪽 정렬", justify: "양쪽 정렬" }[a]} />;
+                })()}
               </button>
             ))}
           </div>
           <div className="flex gap-1">
-            <button type="button" className={`btn flex-1 font-bold ${block.style?.fontWeight === 700 ? "border-neutral-900 bg-neutral-100" : ""}`} onClick={() => style("fontWeight", block.style?.fontWeight === 700 ? undefined : 700)}>굵게</button>
-            <button type="button" className={`btn flex-1 italic ${block.style?.fontStyle === "italic" ? "border-neutral-900 bg-neutral-100" : ""}`} onClick={() => style("fontStyle", block.style?.fontStyle === "italic" ? undefined : "italic")}>기울임</button>
-            <button type="button" className={`btn flex-1 underline ${block.style?.textDecoration === "underline" ? "border-neutral-900 bg-neutral-100" : ""}`} onClick={() => style("textDecoration", block.style?.textDecoration === "underline" ? undefined : "underline")}>밑줄</button>
+            <button type="button" className={`btn flex-1 font-bold ${block.style?.fontWeight === 700 ? "border-brand-300 bg-brand-50 text-brand-700" : ""}`} onClick={() => style("fontWeight", block.style?.fontWeight === 700 ? undefined : 700)} aria-label="굵게"><Bold className="size-4" /></button>
+            <button type="button" className={`btn flex-1 italic ${block.style?.fontStyle === "italic" ? "border-brand-300 bg-brand-50 text-brand-700" : ""}`} onClick={() => style("fontStyle", block.style?.fontStyle === "italic" ? undefined : "italic")} aria-label="기울임"><Italic className="size-4" /></button>
+            <button type="button" className={`btn flex-1 underline ${block.style?.textDecoration === "underline" ? "border-brand-300 bg-brand-50 text-brand-700" : ""}`} onClick={() => style("textDecoration", block.style?.textDecoration === "underline" ? undefined : "underline")} aria-label="밑줄"><Underline className="size-4" /></button>
           </div>
           <Row label="줄 간격">
             <select className={`${small} w-28`} value={String(block.style?.lineHeight ?? "")} onChange={(e) => style("lineHeight", e.target.value ? Number(e.target.value) : undefined)}>
@@ -337,7 +342,7 @@ function PagePanel({ book, page, update, onPickImage }: { book: Book; page: Page
                 layout.id !== page.layoutId &&
                 update((bk) => updatePage(bk, page.id, (p) => applyLayout(p, layout.id, bk.size, { body: bk.theme.bodyFont, heading: bk.theme.headingFont })))
               }
-              className={`flex flex-col items-center gap-1 rounded-lg p-1.5 ${page.layoutId === layout.id ? "bg-blue-50 ring-2 ring-blue-600" : "hover:bg-neutral-100"}`}
+              className={`flex flex-col items-center gap-1 rounded-lg p-1.5 ${page.layoutId === layout.id ? "bg-brand-50 ring-2 ring-brand-600" : "hover:bg-neutral-100"}`}
             >
               <PageThumb book={book} page={sample} width={book.size.width > book.size.height ? 76 : 60} />
               <span className="line-clamp-1 text-[11px] text-neutral-600">{layout.name}</span>
@@ -419,7 +424,7 @@ function BookPanel({ book, update }: { book: Book; update: Update }) {
               type="button"
               title={p.name}
               onClick={() => setTheme(p.theme)}
-              className={`flex flex-col items-center gap-1 rounded-lg p-1.5 ${book.theme.templateId === p.id ? "bg-blue-50 ring-2 ring-blue-600" : "hover:bg-neutral-100"}`}
+              className={`flex flex-col items-center gap-1 rounded-lg p-1.5 ${book.theme.templateId === p.id ? "bg-brand-50 ring-2 ring-brand-600" : "hover:bg-neutral-100"}`}
             >
               <span className="flex h-8 w-full overflow-hidden rounded ring-1 ring-black/10">
                 <span className="flex-[3]" style={{ background: p.theme.primary }} />
