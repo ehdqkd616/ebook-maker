@@ -3,6 +3,7 @@ import { Book, LAYOUT_IDS, SIZE_PRESETS } from "@ebook/schema";
 import {
   applyLayout,
   composeBook,
+  composeImageBook,
   countLines,
   createPage,
   flowUnits,
@@ -12,6 +13,7 @@ import {
   refreshToc,
   resizeBook,
   setTextMeasurer,
+  sizeForAspect,
   splitChapters,
   THEME_PRESETS,
 } from "./index";
@@ -129,7 +131,7 @@ describe("editor helpers", () => {
     for (const id of LAYOUT_IDS) {
       const page = createPage(id, A4);
       expect(page.layoutId).toBe(id);
-      expect(page.blocks.length).toBeGreaterThan(0);
+      if (id !== "blank") expect(page.blocks.length).toBeGreaterThan(0);
     }
   });
 
@@ -173,5 +175,15 @@ describe("editor helpers", () => {
       { title: "둘", body: "본문2" },
     ]);
     expect(splitChapters("제목 없는 글", "메모")).toEqual([{ title: "메모", body: "제목 없는 글" }]);
+  });
+});
+
+describe("composeImageBook", () => {
+  it("keeps the PDF aspect ratio and makes one background page per image", () => {
+    expect(sizeForAspect(595, 842)).toEqual({ preset: "CUSTOM", width: 794, height: 1123 });
+    expect(sizeForAspect(1920, 1080)).toEqual({ preset: "CUSTOM", width: 1123, height: 632 });
+    const book = composeImageBook({ id: "b", title: "PDF", bookType: "ebook", theme, size: sizeForAspect(1920, 1080), images: ["/api/files/a.jpg", "/api/files/b.jpg"] });
+    expect(Book.safeParse(book).success).toBe(true);
+    expect(book.pages.map((p) => [p.layoutId, p.background?.imageUrl])).toEqual([["blank", "/api/files/a.jpg"], ["blank", "/api/files/b.jpg"]]);
   });
 });

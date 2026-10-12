@@ -8,7 +8,7 @@ import { fmtDate } from "@/lib/format";
 export const dynamic = "force-dynamic";
 
 const FEATURES = [
-  ["글만 넣으면 자동 조판", "표지·목차·챕터·본문 페이지를 규칙에 맞춰 짜고, 넘치는 글은 다음 쪽으로 넘겨요."],
+  ["PDF·원고로 바로 시작", "PDF는 페이지 그대로 플립북으로, PDF·Word·텍스트 원고는 표지·목차·본문으로 자동 조판해요."],
   ["페이지 에디터", "글·이미지·도형을 끌어서 옮기고, 레이아웃과 테마를 클릭 한 번에 바꿔요."],
   ["플립북으로 공유", "책장 넘기는 뷰어 주소·QR·임베드 코드로 공유하고, PDF로도 저장해요."],
 ] as const;
@@ -52,13 +52,16 @@ export default async function Home() {
           <h1 className="text-2xl font-bold">내 책</h1>
           <p className="muted mt-1 text-sm">{books.length}권</p>
         </div>
-        <Link href="/books/new" className="btn-primary">+ 새 책 만들기</Link>
+        <div className="flex gap-2">
+          <Link href="/books/new" className="btn px-4 py-2.5 text-base" title="PDF를 페이지 그대로 플립북으로">PDF로 만들기</Link>
+          <Link href="/books/new" className="btn-primary">+ 새 책 만들기</Link>
+        </div>
       </div>
 
       {books.length === 0 ? (
         <div className="card flex flex-col items-start gap-3">
           <p className="font-medium">아직 만든 책이 없어요.</p>
-          <p className="muted text-sm">원고를 붙여 넣거나 .txt/.md 파일을 가져오면 표지부터 본문까지 자동으로 만들어 드려요.</p>
+          <p className="muted text-sm">PDF를 올리면 페이지 그대로 플립북이 되고, 원고(PDF·Word·텍스트)를 넣으면 표지부터 본문까지 새로 디자인해 드려요.</p>
           <div className="flex gap-2">
             <Link href="/books/new" className="btn-primary">첫 책 만들기</Link>
             <Link href="/b/sample" className="btn">샘플 플립북 보기</Link>

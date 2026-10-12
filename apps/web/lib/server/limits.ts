@@ -65,7 +65,7 @@ function createLimits() {
   return {
     login: new RateLimiter(30),
     signup: new RateLimiter(num(process.env.SIGNUP_LIMIT_PER_HOUR, 10), 3_600_000),
-    upload: new RateLimiter(120, 3_600_000), // 회원별 시간당 이미지 업로드
+    upload: new RateLimiter(600, 3_600_000), // 회원별 시간당 이미지 업로드 (PDF 한 권 = 쪽 수만큼)
     loginGuard: new LoginGuard(),
   };
 }

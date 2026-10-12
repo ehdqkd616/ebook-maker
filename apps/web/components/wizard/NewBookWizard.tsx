@@ -12,7 +12,10 @@ import {
 } from "@ebook/layouts";
 import { BOOK_TYPES, SIZE_PRESETS, type BookType, type SizePreset } from "@ebook/schema";
 import { PageThumb } from "@/components/PageThumb";
+import { PdfToFlipbook } from "./PdfToFlipbook";
 import { api, ApiError } from "@/lib/api";
+import { docxToMarkdown } from "@/lib/import/docx";
+import { openPdf, pdfToMarkdown } from "@/lib/import/pdf";
 import { installTextMeasurer } from "@/lib/measure";
 
 // 새 책 만들기 — ① 종류·크기 ② 디자인 ③ 내용. 오른쪽은 입력하는 대로 바로 조판한 미리보기.
@@ -97,16 +100,46 @@ export function NewBookWizard() {
       return next;
     });
 
+  const [importing, setImporting] = useState("");
+
+  /** .txt/.md/.pdf/.docx → 글만 꺼내 챕터로 (`# 제목` 줄마다 챕터) */
   async function importFile(file: File) {
-    if (file.size > 2 * 1024 * 1024) return setError("가져올 파일은 2MB까지 가능합니다.");
-    const text = await file.text();
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
     const base = file.name.replace(/\.[^.]+$/, "");
-    const imported = splitChapters(text, base);
-    if (imported.length === 0) return setError("파일에 내용이 없습니다.");
     setError("");
-    if (!title.trim()) setTitle(base.slice(0, 100));
-    setChapters(imported.map((c) => draft(c)));
-    setOpenChapter(0);
+    setImporting("파일 읽는 중…");
+    try {
+      let text: string;
+      if (ext === "pdf" || file.type === "application/pdf") {
+        const doc = await openPdf(file);
+        setImporting(`PDF 글 꺼내는 중… (${doc.numPages}쪽)`);
+        text = await pdfToMarkdown(doc);
+        await doc.loadingTask.destroy();
+        if (!text) throw new Error("PDF에서 글을 찾지 못했어요. 스캔한 PDF라면 위의 \"PDF 올리기\"로 페이지 그대로 만들어 주세요.");
+      } else if (ext === "docx") {
+        text = await docxToMarkdown(file, setImporting);
+      } else if (ext === "doc" || ext === "hwp") {
+        throw new Error("이 형식은 바로 읽을 수 없어요. Word에서 .docx 또는 PDF로 저장한 뒤 가져와 주세요.");
+      } else {
+        if (file.size > 2 * 1024 * 1024) throw new Error("텍스트 파일은 2MB까지 가져올 수 있어요.");
+        text = await file.text();
+      }
+      let imported = splitChapters(text, base);
+      if (imported.length === 0) throw new Error("파일에 내용이 없습니다.");
+      // 본문 없는 첫 제목은 표지 제목으로 본다 (PDF 표지 등)
+      let docTitle = base;
+      if (imported.length > 1 && !imported[0].body?.trim()) {
+        docTitle = imported[0].title;
+        imported = imported.slice(1);
+      }
+      if (!title.trim()) setTitle(docTitle.slice(0, 100));
+      setChapters(imported.map((c) => draft({ ...c, body: c.body?.slice(0, 60_000) })));
+      setOpenChapter(0);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "파일을 가져오지 못했어요.");
+    } finally {
+      setImporting("");
+    }
   }
 
   async function create() {
@@ -149,6 +182,8 @@ export function NewBookWizard() {
           <h1 className="text-2xl font-bold">새 책 만들기</h1>
           <p className="muted mt-1 text-sm">글을 넣으면 표지·목차·본문 페이지를 자동으로 짜 드려요. 만든 뒤 에디터에서 자유롭게 고칠 수 있어요.</p>
         </div>
+
+        <PdfToFlipbook title={title} />
 
         <ol className="flex gap-2 text-sm">
           {STEPS.map((label, i) => (
@@ -263,11 +298,13 @@ export function NewBookWizard() {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h2 className="font-semibold">챕터 <span className="muted text-sm font-normal">({chapters.length}개 · 본문 {textChars.toLocaleString()}자)</span></h2>
                   <div className="flex gap-2">
-                    <button type="button" className="btn" onClick={() => fileRef.current?.click()}>텍스트 파일 가져오기</button>
+                    <button type="button" className="btn" disabled={!!importing} onClick={() => fileRef.current?.click()}>
+                      {importing || "파일에서 글 가져오기"}
+                    </button>
                     <input
                       ref={fileRef}
                       type="file"
-                      accept=".txt,.md,.markdown,text/plain,text/markdown"
+                      accept=".txt,.md,.markdown,.pdf,.docx,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                       hidden
                       onChange={(e) => {
                         const f = e.target.files?.[0];
@@ -287,7 +324,10 @@ export function NewBookWizard() {
                     </button>
                   </div>
                 </div>
-                <p className="muted text-xs">.txt/.md 파일은 <code># 제목</code> 줄마다 챕터로 나눠 가져와요. 챕터를 비워 두면 표지만 있는 빈 책으로 시작합니다.</p>
+                <p className="muted text-xs">
+                  PDF·Word(.docx)·텍스트 파일에서 글만 꺼내 새로 디자인해요. 큰 제목(<code># 제목</code>)마다 챕터로 나누고, 표·복잡한 배치는 글로만 옮겨져요.
+                  PDF 디자인을 그대로 쓰려면 위의 <b>PDF 올리기</b>를 쓰세요. 챕터를 비워 두면 표지만 있는 빈 책으로 시작합니다.
+                </p>
 
                 <ul className="flex flex-col gap-2">
                   {chapters.map((c, i) => (

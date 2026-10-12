@@ -30,8 +30,12 @@ async function shrink(file: File): Promise<Blob> {
 
 export async function uploadImage(file: File): Promise<string> {
   if (!file.type.startsWith("image/")) throw new Error("이미지 파일만 넣을 수 있습니다.");
-  const dataUrl = await readAsDataUrl(await shrink(file));
-  const { url } = await api<{ url: string }>("/api/uploads", { body: { dataUrl } });
+  return uploadBlob(await shrink(file));
+}
+
+/** 이미 알맞은 크기로 만든 이미지(Blob)를 그대로 올린다 — PDF 쪽 이미지, Word 안 그림 */
+export async function uploadBlob(blob: Blob): Promise<string> {
+  const { url } = await api<{ url: string }>("/api/uploads", { body: { dataUrl: await readAsDataUrl(blob) } });
   return url;
 }
 

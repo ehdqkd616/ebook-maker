@@ -125,6 +125,11 @@ export const layouts = {
       { name: "message", accepts: ["paragraph"], box: { x: 0.15, y: 0.62, w: 0.7, h: 0.16 }, maxChars: 160 },
     ],
   },
+  blank: {
+    id: "blank",
+    name: "빈 페이지",
+    slots: [],
+  },
 } satisfies Record<LayoutId, LayoutDef>;
 
 export const LAYOUT_LIST: LayoutDef[] = Object.values(layouts);

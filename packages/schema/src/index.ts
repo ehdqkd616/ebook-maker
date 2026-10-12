@@ -15,10 +15,11 @@ export const SIZE_PRESETS = {
 } as const;
 export type SizePreset = keyof typeof SIZE_PRESETS;
 
+// CUSTOM: PDF를 그대로 가져올 때처럼 원본 비율을 지키는 크기
 export const BookSize = z.object({
-  preset: z.enum(Object.keys(SIZE_PRESETS) as [SizePreset, ...SizePreset[]]),
-  width: z.number().positive(),
-  height: z.number().positive(),
+  preset: z.enum([...(Object.keys(SIZE_PRESETS) as [SizePreset, ...SizePreset[]]), "CUSTOM"]),
+  width: z.number().min(200).max(3000),
+  height: z.number().min(200).max(3000),
 });
 export type BookSize = z.infer<typeof BookSize>;
 
@@ -58,6 +59,7 @@ export const LAYOUT_IDS = [
   "image-full-caption",
   "quote",
   "back-cover",
+  "blank", // 슬롯·장식 없는 빈 페이지 (PDF 페이지 이미지 등)
 ] as const;
 export const LayoutId = z.enum(LAYOUT_IDS);
 export type LayoutId = z.infer<typeof LayoutId>;

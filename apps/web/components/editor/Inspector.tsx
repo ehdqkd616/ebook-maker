@@ -399,10 +399,12 @@ function BookPanel({ book, update }: { book: Book; update: Update }) {
           className={small}
           value={book.size.preset}
           onChange={(e) => {
+            if (e.target.value === "CUSTOM") return;
             const preset = e.target.value as SizePreset;
             if (confirm("책 크기를 바꾸면 모든 블록 위치가 비율대로 바뀝니다. 계속할까요?")) update((bk) => resizeBook(bk, preset));
           }}
         >
+          {book.size.preset === "CUSTOM" && <option value="CUSTOM">원본 비율 ({book.size.width}×{book.size.height})</option>}
           {(Object.keys(SIZE_PRESETS) as SizePreset[]).map((s) => (
             <option key={s} value={s}>{SIZE_LABEL[s]} ({SIZE_PRESETS[s].width}×{SIZE_PRESETS[s].height})</option>
           ))}

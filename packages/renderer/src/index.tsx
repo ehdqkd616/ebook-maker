@@ -39,7 +39,9 @@ export function PageRenderer({ page, theme, size, pageNumber, scale = 1 }: PageR
           height: size.height,
           transform: scale === 1 ? undefined : `scale(${scale})`,
           background: page.background?.color ?? "var(--eb-bg)",
-          backgroundImage: page.background?.imageUrl ? `url(${page.background.imageUrl})` : undefined,
+          backgroundImage: page.background?.imageUrl ? `url(${JSON.stringify(page.background.imageUrl)})` : undefined,
+          backgroundSize: page.background?.imageUrl ? "cover" : undefined,
+          backgroundPosition: page.background?.imageUrl ? "center" : undefined,
         }}
       >
         {decorations.map((d, i) => (

@@ -424,6 +424,42 @@ export function composeBook(input: ComposeInput): Book {
   });
 }
 
+/** PDF 원본 비율을 지키는 책 크기 — 긴 쪽을 A4 세로 높이(1123px)에 맞춘다 */
+export function sizeForAspect(width: number, height: number): BookSize {
+  const LONG = SIZE_PRESETS.A4.height;
+  const clamp = (n: number) => Math.min(3000, Math.max(200, Math.round(n)));
+  return width >= height
+    ? { preset: "CUSTOM", width: LONG, height: clamp((LONG * height) / width) }
+    : { preset: "CUSTOM", width: clamp((LONG * width) / height), height: LONG };
+}
+
+export type ImageBookInput = {
+  id: string;
+  title: string;
+  author?: string;
+  bookType: BookType;
+  theme: Theme;
+  size: BookSize;
+  /** 페이지 순서대로의 이미지 주소 (PDF 각 쪽을 그린 것) */
+  images: string[];
+};
+
+/** "PDF 그대로 플립북" — 각 쪽 이미지를 빈 페이지의 배경으로 깐다. 위에 글·링크 블록을 더 얹을 수 있다 */
+export function composeImageBook(input: ImageBookInput): Book {
+  return {
+    id: input.id,
+    title: input.title,
+    author: input.author || undefined,
+    language: "ko",
+    bookType: input.bookType,
+    size: input.size,
+    theme: { ...input.theme, background: "#ffffff" },
+    outline: { chapters: [] },
+    pages: input.images.map((url) => ({ id: newId("p"), layoutId: "blank", background: { color: "#ffffff", imageUrl: url }, blocks: [] })),
+    meta: {},
+  };
+}
+
 function tocPage(size: Size): Page {
   return slotPage("toc", size, { heading: heading("목차", 2), body: { type: "toc", data: { entries: [] } } });
 }
