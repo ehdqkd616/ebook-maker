@@ -1,0 +1,97 @@
+/* PageRenderer 기본 스타일. 테마 값은 --eb-* 변수로 주입된다. */
+
+.eb-page-frame {
+  position: relative;
+  overflow: hidden;
+}
+
+.eb-page {
+  position: relative;
+  overflow: hidden;
+  transform-origin: 0 0;
+  color: var(--eb-text);
+  font-family: var(--eb-body-font);
+  font-size: 17px;
+  line-height: 1.75;
+  /* 한글 조판 (SPEC 7-⑤) */
+  word-break: keep-all;
+  line-break: strict;
+  overflow-wrap: break-word;
+}
+
+.eb-page * {
+  box-sizing: border-box;
+}
+
+.eb-decoration,
+.eb-block {
+  position: absolute;
+  margin: 0;
+}
+
+.eb-block {
+  overflow: hidden;
+}
+
+.eb-heading {
+  font-family: var(--eb-heading-font);
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  white-space: pre-line;
+}
+h1.eb-heading { font-size: 44px; }
+h2.eb-heading { font-size: 30px; }
+h3.eb-heading { font-size: 20px; }
+
+.eb-paragraph p {
+  margin: 0 0 0.9em;
+}
+
+.eb-list {
+  padding-left: 1.4em;
+}
+/* 앱 쪽 CSS reset(Tailwind preflight 등)에 지워지지 않도록 명시 */
+ul.eb-list { list-style: disc; }
+ol.eb-list { list-style: decimal; }
+.eb-list li {
+  margin-bottom: 0.4em;
+}
+
+.eb-quote {
+  padding-left: 24px;
+  border-left: 4px solid var(--eb-primary);
+  font-size: 22px;
+  line-height: 1.6;
+}
+.eb-quote p { margin: 0 0 0.5em; }
+.eb-quote cite { font-size: 15px; font-style: normal; opacity: 0.7; }
+
+.eb-link {
+  color: var(--eb-primary);
+}
+
+.eb-page-number {
+  position: absolute;
+  bottom: 36px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 13px;
+  opacity: 0.55;
+}
+
+/* 레이아웃별 스타일 */
+.eb-layout-cover .eb-slot-title { display: flex; align-items: flex-end; color: #fff; font-size: 52px; }
+.eb-layout-cover .eb-slot-subtitle { font-size: 22px; line-height: 1.5; }
+.eb-layout-cover .eb-slot-author { font-size: 15px; opacity: 0.7; }
+
+.eb-layout-chapter-opener .eb-slot-number {
+  color: var(--eb-primary);
+  font-size: 18px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+.eb-layout-chapter-opener .eb-slot-summary { font-size: 19px; opacity: 0.8; }
+
+.eb-layout-text-1col .eb-slot-heading { color: var(--eb-primary); }

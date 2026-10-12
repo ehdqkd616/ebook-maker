@@ -1,0 +1,16 @@
+# /etc/caddy/Caddyfile 에 추가 (Caddy가 HTTPS 인증서 자동 발급)
+ebook-maker.hotgarlic.dedyn.io {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+	# X-Frame-Options는 앱이 붙인다 — 플립북 임베드(/embed/*)만 iframe 허용해야 해서
+	# PDF/Word 업로드 상한 50MB(SPEC 7) + 여유
+	request_body {
+		max_size 60MB
+	}
+	reverse_proxy 127.0.0.1:3400
+}
