@@ -101,7 +101,10 @@ async function Dashboard({ user }: { user: NonNullable<Awaited<ReturnType<typeof
     <div className="mx-auto flex max-w-6xl flex-col gap-10 px-4 py-10 sm:px-6">
       <div className="flex flex-col gap-1">
         <p className="eyebrow">My Library</p>
-        <h1 className="text-[28px] font-bold tracking-tight">{user.name || user.username}님의 책장</h1>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <h1 className="text-[28px] font-bold tracking-tight">{user.name || user.username}님의 책장</h1>
+          <Link href={`/u/${user.username}`} className="btn text-sm" target="_blank">공개 책장 보기</Link>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -151,6 +154,7 @@ async function Dashboard({ user }: { user: NonNullable<Awaited<ReturnType<typeof
                     <div className="mt-2 flex items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
                       <Link href={`/books/${b.id}/edit`} className="btn px-2.5 py-1 text-xs">편집</Link>
                       {b.slug && <Link href={`/b/${b.slug}`} target="_blank" className="btn px-2.5 py-1 text-xs">보기</Link>}
+                      {b.slug && <Link href={`/books/${b.id}/stats`} className="btn px-2.5 py-1 text-xs">통계</Link>}
                       <BookCardActions id={b.id} title={b.title} />
                     </div>
                   </div>

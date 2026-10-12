@@ -13,6 +13,8 @@ export type PageRendererProps = {
   pageNumber?: number;
   /** 화면 맞춤 배율 (transform: scale). */
   scale?: number;
+  /** 썸네일처럼 눌리지 않는 그림으로만 그린다 (버튼 대신 span) */
+  isStatic?: boolean;
 };
 
 export function themeVars(theme: Theme): CSSProperties {
@@ -26,7 +28,7 @@ export function themeVars(theme: Theme): CSSProperties {
   } as CSSProperties;
 }
 
-export function PageRenderer({ page, theme, size, pageNumber, scale = 1 }: PageRendererProps) {
+export function PageRenderer({ page, theme, size, pageNumber, scale = 1, isStatic = false }: PageRendererProps) {
   const decorations = getLayout(page.layoutId).decorations ?? [];
   return (
     <div className="eb-page-frame" style={{ width: size.width * scale, height: size.height * scale }}>
@@ -48,7 +50,7 @@ export function PageRenderer({ page, theme, size, pageNumber, scale = 1 }: PageR
           <DecorationView key={i} decoration={d} size={size} />
         ))}
         {page.blocks.map((block) => (
-          <BlockView key={block.id} block={block} />
+          <BlockView key={block.id} block={block} isStatic={isStatic} />
         ))}
         {pageNumber !== undefined && <div className="eb-page-number">{pageNumber}</div>}
       </div>
@@ -91,7 +93,7 @@ const PLAY_ICON = (
   </svg>
 );
 
-function BlockView({ block }: { block: Block }) {
+function BlockView({ block, isStatic }: { block: Block; isStatic: boolean }) {
   if (block.hidden) return null;
   const anim = block.animation;
   const style: CSSProperties = {
@@ -106,14 +108,14 @@ function BlockView({ block }: { block: Block }) {
   const className = `eb-block eb-${block.type}${block.slot ? ` eb-slot-${block.slot}` : ""}${anim ? ` eb-anim eb-anim-${anim.type}` : ""}${block.action ? " eb-has-action" : ""}`;
   // 뷰어가 눌림을 처리할 수 있게 표시해 둔다 (page-flip은 a·button에 대한 클릭만 넘겨준다)
   const act = { "data-eb-block": block.id } as Record<string, string>;
-  const content = renderContent(block, className, style);
+  const content = renderContent(block, className, style, isStatic);
   if (!block.action || ["button", "hotspot", "product", "video", "audio", "slideshow", "embed", "link"].includes(block.type)) return content;
   // 일반 블록에 동작이 붙으면 같은 자리에 투명한 버튼을 덮는다
   return (
     <>
       {content}
-      <button
-        type="button"
+      <Btn
+        isStatic={isStatic}
         className="eb-block eb-action-cover"
         style={{ left: block.x, top: block.y, width: block.w, height: block.h, transform: style.transform }}
         aria-label={actionLabel(block)}
@@ -131,7 +133,12 @@ function actionLabel(block: Block) {
   return a.title || "자세히 보기";
 }
 
-function renderContent(block: Block, className: string, style: CSSProperties) {
+/** 버튼 — 썸네일처럼 다른 버튼 안에 그릴 때는 눌리지 않는 span으로 (button 안 button 금지) */
+function Btn({ isStatic, ...props }: { isStatic: boolean } & React.ButtonHTMLAttributes<HTMLElement> & Record<`data-${string}`, string | number | undefined>) {
+  return isStatic ? <span {...props} /> : <button type="button" {...props} />;
+}
+
+function renderContent(block: Block, className: string, style: CSSProperties, isStatic: boolean) {
   const act = { "data-eb-block": block.id } as Record<string, string>;
   switch (block.type) {
     case "heading": {
@@ -182,16 +189,16 @@ function renderContent(block: Block, className: string, style: CSSProperties) {
       );
     case "audio":
       return (
-        <button type="button" className={`${className} eb-interactive`} style={style} data-eb-audio={block.data.src} {...act}>
+        <Btn isStatic={isStatic} className={`${className} eb-interactive`} style={style} data-eb-audio={block.data.src} {...act}>
           <span className="eb-audio-icon">{PLAY_ICON}</span>
           <span className="eb-audio-title">{block.data.title || "오디오 재생"}</span>
-        </button>
+        </Btn>
       );
     case "video": {
       const v = videoInfo(block.data.src);
       const poster = v.kind === "youtube" ? `https://i.ytimg.com/vi/${v.id}/hqdefault.jpg` : undefined;
       return (
-        <button type="button" className={`${className} eb-interactive`} style={style} aria-label="동영상 재생" {...act}>
+        <Btn isStatic={isStatic} className={`${className} eb-interactive`} style={style} aria-label="동영상 재생" {...act}>
           {poster ? (
             <img src={poster} alt="" className="eb-video-poster" draggable={false} />
           ) : v.kind === "file" && block.data.src ? (
@@ -200,7 +207,7 @@ function renderContent(block: Block, className: string, style: CSSProperties) {
             <span className="eb-video-empty">동영상</span>
           )}
           <span className="eb-video-play">{PLAY_ICON}</span>
-        </button>
+        </Btn>
       );
     }
     case "slideshow": {
@@ -218,8 +225,8 @@ function renderContent(block: Block, className: string, style: CSSProperties) {
           </div>
           {imgs.length > 1 && (
             <>
-              <button type="button" className="eb-slide-nav eb-slide-prev" data-eb-slide="prev" aria-label="이전 사진">‹</button>
-              <button type="button" className="eb-slide-nav eb-slide-next" data-eb-slide="next" aria-label="다음 사진">›</button>
+              <Btn isStatic={isStatic} className="eb-slide-nav eb-slide-prev" data-eb-slide="prev" aria-label="이전 사진">‹</Btn>
+              <Btn isStatic={isStatic} className="eb-slide-nav eb-slide-next" data-eb-slide="next" aria-label="다음 사진">›</Btn>
               <div className="eb-slide-dots">
                 {imgs.map((_, i) => <span key={i} className={i === 0 ? "on" : ""} />)}
               </div>
@@ -230,25 +237,25 @@ function renderContent(block: Block, className: string, style: CSSProperties) {
     }
     case "product":
       return (
-        <button type="button" className={`${className} eb-interactive`} style={style} aria-label={`상품: ${block.data.name}`} {...act}>
+        <Btn isStatic={isStatic} className={`${className} eb-interactive`} style={style} aria-label={`상품: ${block.data.name}`} {...act}>
           <span className="eb-product-pin">
             <svg viewBox="0 0 24 24" aria-hidden className="eb-icon">
               <path d="M6 7h12l-1 13H7L6 7Z M9 7a3 3 0 0 1 6 0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
             </svg>
           </span>
-        </button>
+        </Btn>
       );
     case "button":
       return (
-        <button type="button" className={`${className} eb-interactive eb-button-${block.data.variant}`} style={style} {...act}>
+        <Btn isStatic={isStatic} className={`${className} eb-interactive eb-button-${block.data.variant}`} style={style} {...act}>
           {block.data.text}
-        </button>
+        </Btn>
       );
     case "hotspot":
       return (
-        <button type="button" className={`${className} eb-interactive${block.data.pulse ? " eb-hotspot-pulse" : ""}`} style={style} aria-label={block.data.label || actionLabel(block) || "자세히 보기"} {...act}>
+        <Btn isStatic={isStatic} className={`${className} eb-interactive${block.data.pulse ? " eb-hotspot-pulse" : ""}`} style={style} aria-label={block.data.label || actionLabel(block) || "자세히 보기"} {...act}>
           {block.data.pulse && <span className="eb-hotspot-dot" />}
-        </button>
+        </Btn>
       );
     case "embed": {
       const url = /^https:\/\//i.test(block.data.url) ? block.data.url : undefined;
@@ -278,12 +285,12 @@ function renderContent(block: Block, className: string, style: CSSProperties) {
           {block.data.entries.length === 0 && <li className="eb-toc-empty">챕터를 추가하면 목차가 채워집니다.</li>}
           {block.data.entries.map((e, i) => (
             <li key={i}>
-              <button type="button" className="eb-toc-link" data-eb-goto={e.page}>
+              <Btn isStatic={isStatic} className="eb-toc-link" data-eb-goto={e.page}>
                 <span className="eb-toc-no">{String(i + 1).padStart(2, "0")}</span>
                 <span className="eb-toc-title">{e.title}</span>
                 <span className="eb-toc-dots" aria-hidden />
                 <span className="eb-toc-page">{e.page}</span>
-              </button>
+              </Btn>
             </li>
           ))}
         </ol>

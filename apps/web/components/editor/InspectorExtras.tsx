@@ -481,6 +481,8 @@ export function ViewerPanel({ book, update, pickImageUrl, pickAudioUrl }: { book
         <Toggle label="PDF 저장·인쇄 허용" hint="공개 플립북에 다운로드 버튼이 생겨요" checked={v.allowDownload} onChange={(x) => set({ allowDownload: x })} />
       </Section>
 
+      <TocEditor book={book} update={update} />
+
       <Section title="도구 막대 버튼">
         <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
           {(Object.keys(BUTTON_LABEL) as (keyof ViewerSettings["buttons"])[]).map((k) => (
@@ -490,5 +492,53 @@ export function ViewerPanel({ book, update, pickImageUrl, pickAudioUrl }: { book
       </Section>
       <p className="text-xs text-neutral-400">바꾼 설정은 미리보기에 바로 보이고, 공개 플립북에는 다시 퍼블리시하면 반영돼요.</p>
     </>
+  );
+}
+
+// ── 뷰어 목차 ─────────────────────────────────────────
+
+function TocEditor({ book, update }: { book: Book; update: Update }) {
+  const toc = book.toc;
+  const setToc = (next: Book["toc"], key?: string) => update((bk) => ({ ...bk, toc: next && next.length ? next : undefined }), key);
+  const edit = (i: number, patch: Partial<NonNullable<Book["toc"]>[number]>, key?: string) =>
+    toc && setToc(toc.map((e, j) => (j === i ? { ...e, ...patch } : e)), key);
+  return (
+    <Section
+      title="뷰어 목차"
+      right={
+        toc ? (
+          <button type="button" className="text-xs text-neutral-500 underline" onClick={() => confirm("직접 만든 목차를 지우고 챕터 제목으로 자동 목차를 쓸까요?") && setToc(undefined)}>자동으로</button>
+        ) : undefined
+      }
+    >
+      {!toc ? (
+        <>
+          <p className="text-xs text-neutral-500">지금은 챕터 시작 페이지 제목으로 자동으로 만들어져요. 직접 정하려면 항목을 추가하세요.</p>
+          <button type="button" className="btn" onClick={() => setToc([{ title: "처음", page: 1, level: 1 }])}>목차 직접 만들기</button>
+        </>
+      ) : (
+        <>
+          <ul className="flex flex-col gap-1.5">
+            {toc.map((e, i) => (
+              <li key={i} className="flex items-center gap-1" style={{ paddingLeft: (e.level - 1) * 10 }}>
+                <input className={`${small} !w-auto min-w-0 flex-1`} value={e.title} maxLength={300} onChange={(ev) => edit(i, { title: ev.target.value }, `toc:${i}:t`)} />
+                <input
+                  type="number"
+                  className={`${small} !w-14 shrink-0 px-1.5`}
+                  min={1}
+                  max={book.pages.length}
+                  value={e.page}
+                  aria-label="쪽"
+                  onChange={(ev) => edit(i, { page: Math.max(1, Math.min(book.pages.length, Math.round(Number(ev.target.value)) || 1)) }, `toc:${i}:p`)}
+                />
+                <button type="button" className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700" title="들여쓰기" onClick={() => edit(i, { level: e.level >= 3 ? 1 : e.level + 1 })}>⇥</button>
+                <button type="button" className="rounded p-1 text-neutral-400 hover:bg-red-50 hover:text-red-600" aria-label="삭제" onClick={() => setToc(toc.filter((_, j) => j !== i))}><Trash2 className="size-3.5" /></button>
+              </li>
+            ))}
+          </ul>
+          <button type="button" className="btn" disabled={toc.length >= 500} onClick={() => setToc([...toc, { title: "새 항목", page: Math.min(book.pages.length, (toc.at(-1)?.page ?? 0) + 1), level: 1 }])}>항목 추가</button>
+        </>
+      )}
+    </Section>
   );
 }

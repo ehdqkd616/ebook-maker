@@ -35,9 +35,19 @@ export const NEW_BLOCK_LABELS: Record<NewBlockKind, string> = {
 };
 
 /** 페이지 가운데에 새 블록을 만든다 */
+let cascade = -1;
+
 export function makeBlock(kind: NewBlockKind, book: Book): Block {
   const { width: W, height: H } = book.size;
-  const box = (w: number, h: number) => ({ id: newId(), x: Math.round((W - w) / 2), y: Math.round((H - h) / 2), w: Math.round(w), h: Math.round(h) });
+  // 연달아 넣어도 겹치지 않게 조금씩 비껴 놓는다
+  const shift = (cascade = (cascade + 1) % 6) * 24;
+  const box = (w: number, h: number) => ({
+    id: newId(),
+    x: Math.max(0, Math.min(W - w, Math.round((W - w) / 2) + shift)),
+    y: Math.max(0, Math.min(H - h, Math.round((H - h) / 2) + shift)),
+    w: Math.round(w),
+    h: Math.round(h),
+  });
   switch (kind) {
     case "heading":
       return { ...box(W * 0.8, 60), type: "heading", data: { text: "제목을 입력하세요", level: 2 } };

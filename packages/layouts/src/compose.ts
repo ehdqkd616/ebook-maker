@@ -442,6 +442,12 @@ export type ImageBookInput = {
   size: BookSize;
   /** 페이지 순서대로의 이미지 주소 (PDF 각 쪽을 그린 것) */
   images: string[];
+  /** 쪽마다의 글 (뷰어 검색용) */
+  texts?: string[];
+  /** 쪽마다의 링크 영역 (쪽 크기에 대한 비율) → 투명 핫스팟 */
+  links?: ({ x: number; y: number; w: number; h: number } & ({ url: string } | { page: number }))[][];
+  /** PDF 북마크 → 뷰어 목차 */
+  toc?: { title: string; page: number; level: number }[];
 };
 
 /** "PDF 그대로 플립북" — 각 쪽 이미지를 빈 페이지의 배경으로 깐다. 위에 글·링크 블록을 더 얹을 수 있다 */
@@ -455,7 +461,25 @@ export function composeImageBook(input: ImageBookInput): Book {
     size: input.size,
     theme: { ...input.theme, background: "#ffffff" },
     outline: { chapters: [] },
-    pages: input.images.map((url) => ({ id: newId("p"), layoutId: "blank", background: { color: "#ffffff", imageUrl: url }, blocks: [] })),
+    pages: input.images.map((url, i) => ({
+      id: newId("p"),
+      layoutId: "blank",
+      background: { color: "#ffffff", imageUrl: url },
+      searchText: input.texts?.[i] || undefined,
+      blocks: (input.links?.[i] ?? []).map(
+        (l): Block => ({
+          id: newId("b"),
+          type: "hotspot",
+          x: Math.round(l.x * input.size.width),
+          y: Math.round(l.y * input.size.height),
+          w: Math.max(8, Math.round(l.w * input.size.width)),
+          h: Math.max(8, Math.round(l.h * input.size.height)),
+          data: { pulse: false },
+          action: "url" in l ? { type: "url", href: l.url } : { type: "page", page: l.page },
+        }),
+      ),
+    })),
+    toc: input.toc?.length ? input.toc : undefined,
     meta: {},
   };
 }

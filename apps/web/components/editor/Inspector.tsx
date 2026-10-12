@@ -350,7 +350,7 @@ function PagePanel({
 }: {
   book: Book; page: Page; selectedId: string | null; update: Update; onSelect: (id: string | null) => void; onPickImage: (t: "background") => void;
 }) {
-  const samples = useMemo(() => LAYOUT_LIST.map((l) => ({ layout: l, page: createPage(l.id, book.size) })), [book.size]);
+  const samples = useMemo(() => LAYOUT_LIST.map((l) => ({ layout: l, page: { ...createPage(l.id, book.size), id: `sample-${l.id}` } })), [book.size]);
   return (
     <>
       <Section title="레이아웃">

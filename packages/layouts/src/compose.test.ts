@@ -7,9 +7,11 @@ import {
   countLines,
   createPage,
   flowUnits,
+  getThemePreset,
   moveOverflowToNextPage,
   overflowingBlocks,
   parseBody,
+  searchBook,
   refreshToc,
   resizeBook,
   setTextMeasurer,
@@ -198,5 +200,30 @@ describe("search & toc", () => {
     expect(hits.at(-1)?.page).toBe(book.pages.length);
     expect(bookToc(book)[0]).toMatchObject({ title: "첫 장" });
     expect(bookToc({ ...book, toc: [{ title: "직접", page: 2, level: 1 }] })).toEqual([{ title: "직접", page: 2, level: 1 }]);
+  });
+});
+
+describe("composeImageBook — PDF 링크·목차·글", () => {
+  it("링크 영역을 투명 핫스팟으로, 북마크를 목차로, 쪽 글을 검색용으로 넣는다", () => {
+    const size = { preset: "CUSTOM" as const, width: 1000, height: 1400 };
+    const book = composeImageBook({
+      id: "x",
+      title: "t",
+      bookType: "ebook",
+      theme: getThemePreset("modern").theme,
+      size,
+      images: ["/a.jpg", "/b.jpg"],
+      texts: ["첫 쪽 글", ""],
+      links: [[{ x: 0.1, y: 0.2, w: 0.3, h: 0.05, url: "https://example.com" }], [{ x: 0, y: 0, w: 0.5, h: 0.5, page: 1 }]],
+      toc: [{ title: "1장", page: 2, level: 1 }],
+    });
+    expect(Book.safeParse(book).success).toBe(true);
+    const [a, b] = book.pages;
+    expect(a.searchText).toBe("첫 쪽 글");
+    expect(b.searchText).toBeUndefined();
+    expect(a.blocks[0]).toMatchObject({ type: "hotspot", x: 100, y: 280, w: 300, h: 70, action: { type: "url", href: "https://example.com" } });
+    expect(b.blocks[0].action).toEqual({ type: "page", page: 1 });
+    expect(book.toc).toEqual([{ title: "1장", page: 2, level: 1 }]);
+    expect(searchBook(book, "첫 쪽")[0]?.page).toBe(1);
   });
 });

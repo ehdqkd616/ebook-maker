@@ -127,7 +127,8 @@ function Tile({ icon: Icon, label, value, hint }: { icon: typeof Eye; label: str
 
 /** 한 계열 막대 그래프 — 막대 끝만 둥글게, 막대 사이 2px 틈, 가벼운 기준선, 마우스 올리면 값 */
 function Bars({ data, height }: { data: { key: string; label: string; value: number; tip: string }[]; height: number }) {
-  const max = Math.max(1, ...data.map((d) => d.value));
+  // 눈금이 정수로 떨어지게 짝수로 올린다 (최댓값 1일 때 "1, 1" 눈금 방지)
+  const max = Math.max(2, Math.ceil(Math.max(...data.map((d) => d.value), 0) / 2) * 2);
   const every = Math.ceil(data.length / 12);
   return (
     <div className="mt-5" role="img" aria-label="막대 그래프">

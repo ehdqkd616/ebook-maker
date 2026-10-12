@@ -89,7 +89,11 @@ export function Viewer({ book, slug, backHref, embed = false, initialPage }: Vie
     },
     [slug],
   );
-  useEffect(() => track("view"), [track]);
+  const firstPage = useRef(current);
+  useEffect(() => {
+    track("view");
+    track("page", { page: firstPage.current + 1 }); // 처음 펼친 쪽도 읽은 쪽으로 센다
+  }, [track]);
 
   // ── 이어 보기·책갈피 (이 브라우저에만 저장) ──
   useEffect(() => {

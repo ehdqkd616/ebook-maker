@@ -177,7 +177,7 @@ export function Canvas({
     if (e.button !== 0) return;
     e.stopPropagation();
     onSelect(b.id);
-    if (editingId === b.id) return;
+    if (editingId === b.id || b.locked) return;
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
     setDrag({ id: b.id, mode, startX: e.clientX, startY: e.clientY, box: { x: b.x, y: b.y, w: b.w, h: b.h }, key: `drag:${b.id}:${Date.now()}` });
   };
@@ -208,9 +208,10 @@ export function Canvas({
                   style={{
                     ...box,
                     transform: b.rotation ? `rotate(${b.rotation}deg)` : undefined,
-                    outline: selected ? "2px solid #6339e6" : hover === b.id ? "1px dashed #6339e6" : undefined,
+                    outline: selected ? `2px solid ${b.locked ? "#a3a3a3" : "#6339e6"}` : hover === b.id ? "1px dashed #6339e6" : b.hidden ? "1px dashed #a3a3a3" : undefined,
                     outlineOffset: 1,
-                    cursor: editingId === b.id ? "text" : "move",
+                    background: b.hidden ? "repeating-linear-gradient(45deg, rgba(0,0,0,.04) 0 6px, transparent 6px 12px)" : undefined,
+                    cursor: editingId === b.id ? "text" : b.locked ? "default" : "move",
                   }}
                   onPointerEnter={() => setHover(b.id)}
                   onPointerLeave={() => setHover((h) => (h === b.id ? null : h))}
@@ -221,7 +222,12 @@ export function Canvas({
                     else if (b.type === "image") onRequestImage(b.id);
                   }}
                 >
-                  {selected && editingId !== b.id &&
+                  {(b.hidden || b.locked) && (
+                    <span className="pointer-events-none absolute -top-5 left-0 rounded bg-neutral-700/80 px-1.5 py-px text-[10px] whitespace-nowrap text-white">
+                      {[b.hidden && "숨김", b.locked && "잠김"].filter(Boolean).join(" · ")}
+                    </span>
+                  )}
+                  {selected && editingId !== b.id && !b.locked &&
                     HANDLES.filter((h) => !(b.h * s < 16 && (h.includes("n") || h.includes("s")) && h.length === 2)).map((h) => (
                       <span
                         key={h}

@@ -134,3 +134,92 @@ export async function pdfToMarkdown(doc: PDFDocumentProxy): Promise<string> {
   flush();
   return out.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
+
+// ── 쪽 그대로 플립북: 링크·목차(북마크)·검색용 글 ─────────────────────────
+
+/** 쪽 안 링크 영역 (쪽 크기에 대한 비율 0~1) */
+export type PdfLink = { x: number; y: number; w: number; h: number } & ({ url: string } | { page: number });
+export type PdfOutlineEntry = { title: string; page: number; level: number };
+export type PdfExtras = { texts: string[]; links: PdfLink[][]; outline: PdfOutlineEntry[] };
+
+type Dest = string | unknown[] | null;
+
+async function destPage(doc: PDFDocumentProxy, dest: Dest): Promise<number | null> {
+  try {
+    const explicit = typeof dest === "string" ? await doc.getDestination(dest) : dest;
+    if (!Array.isArray(explicit) || !explicit[0]) return null;
+    const ref = explicit[0];
+    const index = typeof ref === "number" ? ref : await doc.getPageIndex(ref as Parameters<PDFDocumentProxy["getPageIndex"]>[0]);
+    return index + 1;
+  } catch {
+    return null;
+  }
+}
+
+/** 각 쪽의 글(검색용)·링크 영역과 PDF 북마크(목차)를 읽는다. 실패해도 빈 값으로 넘어간다 */
+export async function pdfExtras(doc: PDFDocumentProxy): Promise<PdfExtras> {
+  const total = Math.min(doc.numPages, MAX_PDF_PAGES);
+  const texts: string[] = [];
+  const links: PdfLink[][] = [];
+  for (let p = 1; p <= total; p++) {
+    const page = await doc.getPage(p);
+    const vp = page.getViewport({ scale: 1 });
+    try {
+      const content = await page.getTextContent();
+      texts.push(
+        content.items
+          .map((it) => ("str" in it ? it.str + (it.hasEOL ? "\n" : "") : ""))
+          .join("")
+          .replace(/[ \t]+/g, " ")
+          .trim()
+          .slice(0, 20000),
+      );
+    } catch {
+      texts.push("");
+    }
+    const found: PdfLink[] = [];
+    try {
+      for (const a of (await page.getAnnotations()) as { subtype?: string; rect?: number[]; url?: string; unsafeUrl?: string; dest?: Dest }[]) {
+        if (a.subtype !== "Link" || !a.rect) continue;
+        // PDF 좌표(왼쪽 아래 원점) → 화면 좌표(왼쪽 위 원점)
+        const [x1, y1] = vp.convertToViewportPoint(a.rect[0], a.rect[1]) as number[];
+        const [x2, y2] = vp.convertToViewportPoint(a.rect[2], a.rect[3]) as number[];
+        const box = {
+          x: Math.min(x1, x2) / vp.width,
+          y: Math.min(y1, y2) / vp.height,
+          w: Math.abs(x2 - x1) / vp.width,
+          h: Math.abs(y2 - y1) / vp.height,
+        };
+        if (box.w <= 0 || box.h <= 0) continue;
+        const url = a.url ?? a.unsafeUrl;
+        if (url && /^(https?:|mailto:|tel:)/i.test(url)) found.push({ ...box, url });
+        else if (a.dest) {
+          const target = await destPage(doc, a.dest);
+          if (target && target <= total) found.push({ ...box, page: target });
+        }
+      }
+    } catch {
+      /* 링크 없음 */
+    }
+    links.push(found.slice(0, 60));
+    page.cleanup();
+  }
+
+  const outline: PdfOutlineEntry[] = [];
+  try {
+    type Node = { title: string; dest: Dest; items: Node[] };
+    const walk = async (nodes: Node[], level: number) => {
+      for (const n of nodes) {
+        if (outline.length >= 500) return;
+        const page = await destPage(doc, n.dest);
+        const title = n.title.replace(/\s+/g, " ").trim().slice(0, 300);
+        if (page && page <= total && title) outline.push({ title, page, level: Math.min(level, 4) });
+        if (n.items?.length) await walk(n.items, level + 1);
+      }
+    };
+    await walk(((await doc.getOutline()) ?? []) as Node[], 1);
+  } catch {
+    /* 북마크 없음 */
+  }
+  return { texts, links, outline };
+}

@@ -24,6 +24,7 @@ export function PageThumb({
         theme={book.theme}
         size={book.size}
         scale={scale}
+        isStatic
         pageNumber={index !== undefined && showsPageNumber(page.layoutId) ? index + 1 : undefined}
       />
     </div>

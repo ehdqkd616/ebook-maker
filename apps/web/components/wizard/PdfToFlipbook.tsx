@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import { FileUp, Layers, Loader2, Lock, MousePointerClick, UploadCloud } from "lucide-react";
 import { BOOK_TYPE_INFO, composeImageBook, getThemePreset, sizeForAspect } from "@ebook/layouts";
 import { api, ApiError } from "@/lib/api";
-import { firstPageSize, MAX_PDF_PAGES, openPdf, renderPdfPages } from "@/lib/import/pdf";
+import { firstPageSize, MAX_PDF_PAGES, openPdf, pdfExtras, renderPdfPages } from "@/lib/import/pdf";
 import { uploadBlob } from "@/lib/upload";
 
 // "PDF 그대로 플립북" — FlipHTML5의 기본 기능. 각 쪽을 이미지로 그려 올리고, 원본 비율 그대로 책을 만든다.
@@ -50,6 +50,8 @@ export function PdfToFlipbook({ title }: { title: string }) {
         () => stop.current,
       );
       await Promise.all(pending);
+      if (!stop.current) setProgress({ done: total, total, label: "링크·목차·글 읽는 중…" });
+      const extras = stop.current ? null : await pdfExtras(doc).catch(() => null);
       await doc.loadingTask.destroy();
       if (stop.current) {
         setProgress(null);
@@ -65,6 +67,9 @@ export function PdfToFlipbook({ title }: { title: string }) {
         theme: getThemePreset(BOOK_TYPE_INFO.ebook.theme).theme,
         size,
         images: urls,
+        texts: extras?.texts,
+        links: extras?.links,
+        toc: extras?.outline,
       });
       const { id } = await api<{ id: string }>("/api/books", { body: { doc: book } });
       router.push(`/books/${id}/edit`);

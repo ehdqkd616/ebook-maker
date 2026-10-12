@@ -27,6 +27,9 @@ export function PublishDialog({
   const [error, setError] = useState("");
   const [qr, setQr] = useState("");
   const [copied, setCopied] = useState("");
+  const [visibility, setVisibility] = useState(publication?.visibility ?? "public");
+  const [password, setPassword] = useState("");
+  const [accessMsg, setAccessMsg] = useState("");
   const origin = typeof window === "undefined" ? "" : window.location.origin;
   const url = publication ? `${origin}/b/${publication.slug}` : "";
   const embed = publication
@@ -75,6 +78,23 @@ export function PublishDialog({
     }
   }
 
+  async function saveAccess() {
+    setBusy(true);
+    setError("");
+    setAccessMsg("");
+    try {
+      const r = await api<{ publication: Publication }>(`/api/books/${bookId}/publish`, { method: "PATCH", body: { visibility, password } });
+      setPublication(r.publication);
+      setPassword("");
+      setAccessMsg("저장했어요");
+      setTimeout(() => setAccessMsg(""), 2000);
+    } catch (e) {
+      setError(e instanceof ApiError || e instanceof Error ? e.message : "저장하지 못했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const copy = async (text: string, what: string) => {
     await navigator.clipboard.writeText(text);
     setCopied(what);
@@ -117,6 +137,45 @@ export function PublishDialog({
               </div>
             </div>
 
+            <div className="flex flex-col gap-2 rounded-xl bg-neutral-50 p-3 ring-1 ring-black/5">
+              <span className="text-sm font-medium">공개 범위</span>
+              <div className="seg flex">
+                {([
+                  ["public", "전체 공개"],
+                  ["unlisted", "링크가 있는 사람만"],
+                  ["password", "비밀번호"],
+                ] as const).map(([v, l]) => (
+                  <button key={v} type="button" className="flex-1" aria-pressed={visibility === v} onClick={() => setVisibility(v)}>{l}</button>
+                ))}
+              </div>
+              <p className="text-xs text-neutral-500">
+                {visibility === "public" && "누구나 볼 수 있고, 내 책장과 검색엔진에도 노출돼요."}
+                {visibility === "unlisted" && "주소를 아는 사람만 볼 수 있어요. 책장·검색엔진에는 나오지 않아요."}
+                {visibility === "password" && "비밀번호를 입력해야 볼 수 있어요."}
+              </p>
+              {visibility === "password" && (
+                <input
+                  className="input text-sm"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder={publication.visibility === "password" ? "바꾸려면 새 비밀번호 입력 (비우면 그대로)" : "비밀번호 (4자 이상)"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              )}
+              <div className="flex items-center justify-end gap-2">
+                {accessMsg && <span className="text-xs text-emerald-600">{accessMsg}</span>}
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={busy || (visibility === publication.visibility && !password)}
+                  onClick={saveAccess}
+                >
+                  공개 범위 저장
+                </button>
+              </div>
+            </div>
+
             <div className="flex gap-4">
               {qr && (
                 <div className="flex flex-col items-center gap-1.5">
@@ -132,7 +191,8 @@ export function PublishDialog({
               </div>
             </div>
 
-            <div className="flex justify-end border-t border-neutral-100 pt-4">
+            <div className="flex items-center justify-between border-t border-neutral-100 pt-4">
+              <a className="btn" href={`/books/${bookId}/stats`}>방문 통계 보기</a>
               <button type="button" className="btn-danger" disabled={busy} onClick={unpublish}>공개 중지</button>
             </div>
           </>
