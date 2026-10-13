@@ -108,7 +108,7 @@ export function PdfToFlipbook({ title }: { title: string }) {
         </span>
         <div className="relative">
           <p className="text-xl font-semibold">PDF를 여기에 끌어다 놓으세요</p>
-          <p className="muted mt-1.5 text-sm">또는 눌러서 파일 고르기 · 최대 {MAX_PDF_PAGES}쪽, 100MB</p>
+          <p className="muted mt-1.5 text-sm">또는 눌러서 파일 고르기 · 최대 {MAX_PDF_PAGES}쪽</p>
         </div>
         <span className="btn-primary relative mt-2">
           <FileUp className="size-4" /> PDF 고르기

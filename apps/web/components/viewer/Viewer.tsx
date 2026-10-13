@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { bookToc } from "@ebook/layouts";
 import { DEFAULT_VIEWER, ViewerSettings, type Block, type Book } from "@ebook/schema";
-import { FlipStage, type StageHandle } from "./FlipStage";
+import { FlipStage, PERSPECTIVE_RATIO, type StageHandle } from "./FlipStage";
 import { ScrollStage, SlideStage } from "./PagedStage";
 import { ShareDialog } from "./ShareDialog";
 import { playFlipSound } from "./sound";
@@ -131,7 +131,8 @@ export function Viewer({ book, slug, backHref, embed = false, initialPage }: Vie
     let timer: ReturnType<typeof setTimeout>;
     const measure = () => {
       const cw = box.clientWidth - PADDING * 2;
-      const ch = box.clientHeight - PADDING * 2;
+      // hard 넘김은 3D로 회전하면서 잠깐 커지므로(최대 약 1/PERSPECTIVE_RATIO) 위아래 여유를 남긴다
+      const ch = (box.clientHeight - PADDING * 2) / (settings.mode === "flip" ? 1 + 1 / PERSPECTIVE_RATIO : 1);
       const wide = cw > ch * 1.15 && settings.mode !== "scroll";
       const s =
         settings.mode === "scroll"
@@ -401,7 +402,7 @@ export function Viewer({ book, slug, backHref, embed = false, initialPage }: Vie
           >
             {scale !== null &&
               (settings.mode === "flip" ? (
-                <FlipStage book={book} scale={scale} startPage={current} showPageNumbers={v.showPageNumbers} onFlip={onFlip} handleRef={stageRef} />
+                <FlipStage book={book} scale={scale} spread={spread} startPage={current} showPageNumbers={v.showPageNumbers} onFlip={onFlip} handleRef={stageRef} />
               ) : settings.mode === "slide" ? (
                 <SlideStage book={book} scale={scale} current={current} spread={spread} showPageNumbers={v.showPageNumbers} onFlip={onFlip} handleRef={stageRef} />
               ) : (
