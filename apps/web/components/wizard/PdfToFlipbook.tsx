@@ -2,10 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
-import { FileUp, Layers, Loader2, Lock, MousePointerClick, UploadCloud } from "lucide-react";
+import { FileUp, Image as ImageIcon, Layers, Loader2, Lock, MousePointerClick, Type, UploadCloud } from "lucide-react";
 import { BOOK_TYPE_INFO, composeImageBook, getThemePreset, sizeForAspect } from "@ebook/layouts";
 import { api, ApiError } from "@/lib/api";
 import { firstPageSize, MAX_PDF_PAGES, openPdf, pdfExtras, renderPdfPages } from "@/lib/import/pdf";
+import type { PdfTextBox } from "@/lib/import/pdf-text";
+import { installTextMeasurer } from "@/lib/measure";
 import { uploadBlob } from "@/lib/upload";
 
 // "PDF 그대로 플립북" — FlipHTML5의 기본 기능. 각 쪽을 이미지로 그려 올리고, 원본 비율 그대로 책을 만든다.
@@ -19,6 +21,8 @@ export function PdfToFlipbook({ title }: { title: string }) {
   const stop = useRef(false);
   const [progress, setProgress] = useState<{ done: number; total: number; label: string } | null>(null);
   const [error, setError] = useState("");
+  // image: 쪽을 그림으로 그대로 / text: 글자를 빼고 그 자리에 고칠 수 있는 글 블록을 올린다
+  const [mode, setMode] = useState<"image" | "text">("image");
 
   async function convert(file: File) {
     setError("");
@@ -30,6 +34,8 @@ export function PdfToFlipbook({ title }: { title: string }) {
       const pt = await firstPageSize(doc);
       const size = sizeForAspect(pt.width, pt.height);
       const urls: string[] = new Array(total);
+      const textBoxes: (PdfTextBox[] | undefined)[] = new Array(total);
+      if (mode === "text") await installTextMeasurer(); // 자간을 웹 글꼴로 재기 전에 글꼴을 받아 둔다
       const pending = new Set<Promise<void>>();
       let done = 0;
       setProgress({ done: 0, total, label: "페이지 변환 중…" });
@@ -37,7 +43,8 @@ export function PdfToFlipbook({ title }: { title: string }) {
       await renderPdfPages(
         doc,
         Math.min(2400, size.width * 2),
-        async (blob, i) => {
+        async (blob, i, texts) => {
+          textBoxes[i] = texts;
           const task = uploadBlob(blob).then((url) => {
             urls[i] = url;
             done++;
@@ -48,6 +55,7 @@ export function PdfToFlipbook({ title }: { title: string }) {
           if (pending.size >= UPLOAD_CONCURRENCY) await Promise.race(pending);
         },
         () => stop.current,
+        { editableText: mode === "text" },
       );
       await Promise.all(pending);
       if (!stop.current) setProgress({ done: total, total, label: "링크·목차·글 읽는 중…" });
@@ -70,6 +78,7 @@ export function PdfToFlipbook({ title }: { title: string }) {
         texts: extras?.texts,
         links: extras?.links,
         toc: extras?.outline,
+        textBoxes: mode === "text" ? textBoxes : undefined,
       });
       const { id } = await api<{ id: string }>("/api/books", { body: { doc: book } });
       router.push(`/books/${id}/edit`);
@@ -127,6 +136,31 @@ export function PdfToFlipbook({ title }: { title: string }) {
       </label>
 
       <aside className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2 rounded-2xl border border-black/[0.06] bg-white p-3">
+          <p className="px-1 text-sm font-semibold">가져오는 방식</p>
+          {(
+            [
+              ["image", ImageIcon, "원본 그대로", "디자인·글꼴을 그대로 이미지로. 가장 정확해요."],
+              ["text", Type, "글자 고칠 수 있게 (베타)", "PDF 글자를 글 블록으로 바꿔 에디터에서 바로 고쳐요. 글꼴은 비슷한 웹 글꼴로 바뀌어요."],
+            ] as const
+          ).map(([m, Icon, t, d]) => (
+            <button
+              key={m}
+              type="button"
+              disabled={!!progress}
+              onClick={() => setMode(m)}
+              aria-pressed={mode === m}
+              className={`flex gap-3 rounded-xl border p-3 text-left transition ${mode === m ? "border-brand-500 bg-brand-50 ring-2 ring-brand-500/15" : "border-black/10 hover:border-black/20"}`}
+            >
+              <Icon className={`mt-0.5 size-4 shrink-0 ${mode === m ? "text-brand-600" : "text-neutral-400"}`} />
+              <span>
+                <span className="block text-sm font-semibold">{t}</span>
+                <span className="muted mt-0.5 block text-[12.5px] leading-relaxed">{d}</span>
+              </span>
+            </button>
+          ))}
+          {mode === "text" && <p className="px-1 text-xs text-neutral-500">스캔한 PDF처럼 글자가 그림인 쪽은 원본 그대로 들어가요.</p>}
+        </div>
         {[
           { icon: Layers, title: "페이지 그대로", desc: "디자인·글꼴·사진을 손대지 않고 원본 그대로 플립북 페이지로 바꿔요." },
           { icon: MousePointerClick, title: "그 위에 덧붙이기", desc: "만든 뒤 에디터에서 링크·글·이미지를 페이지 위에 얹을 수 있어요." },

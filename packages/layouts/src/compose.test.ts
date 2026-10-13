@@ -227,3 +227,25 @@ describe("composeImageBook — PDF 링크·목차·글", () => {
     expect(searchBook(book, "첫 쪽")[0]?.page).toBe(1);
   });
 });
+
+describe("composeImageBook — 고칠 수 있는 글", () => {
+  it("글 상자를 같은 자리·크기·색의 본문 블록으로 만들고, 검색용 글은 블록에 맡긴다", () => {
+    const size = { preset: "CUSTOM" as const, width: 1000, height: 1400 };
+    const book = composeImageBook({
+      id: "x",
+      title: "t",
+      bookType: "ebook",
+      theme: getThemePreset("modern").theme,
+      size,
+      images: ["/a.jpg"],
+      texts: ["원래 글"],
+      textBoxes: [[{ x: 0.1, y: 0.05, w: 0.5, h: 0.02, text: "첫 문단", size: 0.02, lineHeight: 1.8, letterSpacing: -0.01, color: "#222222", bold: true, serif: false, align: "justify" }]],
+    });
+    expect(Book.safeParse(book).success).toBe(true);
+    const [b] = book.pages[0].blocks;
+    expect(b).toMatchObject({ type: "paragraph", x: 100, y: 70, w: 500, h: 28, data: { text: "첫 문단" } });
+    expect(b.style).toMatchObject({ fontSize: 20, lineHeight: 1.8, color: "#222222", fontWeight: 700, letterSpacing: "-0.01em", textAlign: "justify" });
+    expect(book.pages[0].searchText).toBeUndefined();
+    expect(searchBook(book, "첫 문단")[0]?.page).toBe(1);
+  });
+});

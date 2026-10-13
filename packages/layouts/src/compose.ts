@@ -10,6 +10,7 @@ import {
   type Theme,
 } from "@ebook/schema";
 import { getLayout, placeBlocks, toPx, type Box, type SlotContent } from "./defs";
+import { FONTS } from "./themes";
 
 // 규칙 기반 조판 (AI 없이). 챕터 본문 텍스트를 단위(문단·소제목·목록·인용·이미지)로 나누고,
 // 글자 폭을 추정해 본문 슬롯 높이를 넘치면 다음 페이지로 넘긴다 (SPEC 7-⑤의 단순 버전).
@@ -446,9 +447,50 @@ export type ImageBookInput = {
   texts?: string[];
   /** 쪽마다의 링크 영역 (쪽 크기에 대한 비율) → 투명 핫스팟 */
   links?: ({ x: number; y: number; w: number; h: number } & ({ url: string } | { page: number }))[][];
+  /** 쪽마다의 고칠 수 있는 글 상자 (비율 단위, 글자를 뺀 배경 위에 올린다) */
+  textBoxes?: (ImageTextBox[] | undefined)[];
   /** PDF 북마크 → 뷰어 목차 */
   toc?: { title: string; page: number; level: number }[];
 };
+
+export type ImageTextBox = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  text: string;
+  size: number;
+  lineHeight: number;
+  letterSpacing: number;
+  color: string;
+  bold: boolean;
+  serif: boolean;
+  align: "left" | "center" | "justify";
+};
+
+function textBoxBlock(t: ImageTextBox, size: BookSize): Block {
+  const W = size.width;
+  const H = size.height;
+  const style: Record<string, string | number> = {
+    fontSize: Math.round(t.size * W * 10) / 10,
+    lineHeight: t.lineHeight,
+    color: t.color,
+    fontFamily: t.serif ? FONTS.serif.css : FONTS.sans.css,
+  };
+  if (t.bold) style.fontWeight = 700;
+  if (t.letterSpacing) style.letterSpacing = `${t.letterSpacing}em`;
+  if (t.align !== "left") style.textAlign = t.align;
+  return {
+    id: newId("b"),
+    type: "paragraph",
+    x: Math.round(t.x * W),
+    y: Math.round(t.y * H),
+    w: Math.max(10, Math.round(t.w * W)),
+    h: Math.max(10, Math.round(t.h * H)),
+    style,
+    data: { text: t.text },
+  };
+}
 
 /** "PDF 그대로 플립북" — 각 쪽 이미지를 빈 페이지의 배경으로 깐다. 위에 글·링크 블록을 더 얹을 수 있다 */
 export function composeImageBook(input: ImageBookInput): Book {
@@ -465,8 +507,10 @@ export function composeImageBook(input: ImageBookInput): Book {
       id: newId("p"),
       layoutId: "blank",
       background: { color: "#ffffff", imageUrl: url },
-      searchText: input.texts?.[i] || undefined,
-      blocks: (input.links?.[i] ?? []).map(
+      searchText: input.textBoxes?.[i]?.length ? undefined : input.texts?.[i] || undefined,
+      blocks: [
+        ...(input.textBoxes?.[i] ?? []).map((t) => textBoxBlock(t, input.size)),
+        ...(input.links?.[i] ?? []).map(
         (l): Block => ({
           id: newId("b"),
           type: "hotspot",
@@ -478,6 +522,7 @@ export function composeImageBook(input: ImageBookInput): Book {
           action: "url" in l ? { type: "url", href: l.url } : { type: "page", page: l.page },
         }),
       ),
+      ],
     })),
     toc: input.toc?.length ? input.toc : undefined,
     meta: {},

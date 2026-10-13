@@ -4,7 +4,8 @@
 
 // legacy 빌드: 최신 pdf.js는 아주 새로운 JS 기능(Map.getOrInsertComputed 등)을 써서 조금 오래된 브라우저에서
 // 멈춘다. legacy 빌드는 이를 폴리필로 채워 넣어 준다.
-import type { PDFDocumentProxy } from "pdfjs-dist/legacy/build/pdf.mjs";
+import type { PDFDocumentProxy, PageViewport } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { extractTextBoxes, hideText, type PdfTextBox } from "./pdf-text";
 
 export const MAX_PDF_PAGES = 200;
 
@@ -37,31 +38,51 @@ export async function firstPageSize(doc: PDFDocumentProxy) {
 /**
  * 각 쪽을 targetWidth(px) 폭의 JPEG로 그려 하나씩 넘긴다.
  * 그리기는 한 쪽씩(메모리), 업로드는 onPage에서 비동기로 해도 된다.
+ * editableText면 글자를 뺀 배경 그림과, 고칠 수 있는 글 상자(pdf-text.ts)를 함께 넘긴다.
  */
 export async function renderPdfPages(
   doc: PDFDocumentProxy,
   targetWidth: number,
-  onPage: (blob: Blob, index: number) => Promise<void>,
+  onPage: (blob: Blob, index: number, texts?: PdfTextBox[]) => Promise<void>,
   shouldStop: () => boolean = () => false,
+  opts: { editableText?: boolean } = {},
 ) {
+  const lib = await pdfjs();
   const total = Math.min(doc.numPages, MAX_PDF_PAGES);
+  const draw = async (page: Awaited<ReturnType<PDFDocumentProxy["getPage"]>>, viewport: PageViewport, withText: boolean) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(viewport.width);
+    canvas.height = Math.round(viewport.height);
+    const ctx = canvas.getContext("2d", { willReadFrequently: opts.editableText })!;
+    ctx.fillStyle = "#ffffff"; // 투명 배경 PDF도 흰 종이로
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (!withText) hideText(ctx);
+    await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+    return ctx;
+  };
   for (let i = 1; i <= total; i++) {
     if (shouldStop()) return;
     const page = await doc.getPage(i);
     const base = page.getViewport({ scale: 1 });
     const viewport = page.getViewport({ scale: Math.min(4, targetWidth / base.width) });
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(viewport.width);
-    canvas.height = Math.round(viewport.height);
-    const ctx = canvas.getContext("2d")!;
-    ctx.fillStyle = "#ffffff"; // 투명 배경 PDF도 흰 종이로
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    await page.render({ canvas, canvasContext: ctx, viewport }).promise;
-    const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.85));
+    let ctx: CanvasRenderingContext2D;
+    let texts: PdfTextBox[] | undefined;
+    if (opts.editableText) {
+      const full = await draw(page, viewport, true);
+      ctx = await draw(page, viewport, false);
+      texts = await extractTextBoxes(page, viewport, lib.Util, full, ctx).catch(() => undefined);
+      full.canvas.width = full.canvas.height = 0;
+      // 글자를 못 찾은 쪽(스캔본 등)은 원본 그림을 그대로 쓴다
+      if (!texts?.length) {
+        ctx.canvas.width = ctx.canvas.height = 0;
+        ctx = await draw(page, viewport, true);
+      }
+    } else ctx = await draw(page, viewport, true);
+    const blob = await new Promise<Blob | null>((r) => ctx.canvas.toBlob(r, "image/jpeg", 0.85));
     page.cleanup();
-    canvas.width = canvas.height = 0;
+    ctx.canvas.width = ctx.canvas.height = 0;
     if (!blob) throw new Error(`${i}쪽을 그리지 못했어요.`);
-    await onPage(blob, i - 1);
+    await onPage(blob, i - 1, texts);
   }
 }
 
