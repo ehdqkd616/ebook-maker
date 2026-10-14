@@ -168,6 +168,9 @@ export async function downloadEpub(book: Book, onProgress?: (done: number, total
   a.download = `${(book.title || "ebook").replace(/[\\/:*?"<>|]+/g, " ").trim().slice(0, 80) || "ebook"}.epub`;
   document.body.appendChild(a);
   a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+  // 바로 지우면 일부 브라우저가 파일 이름(download 속성)을 잃는다
+  setTimeout(() => {
+    a.remove();
+    URL.revokeObjectURL(a.href);
+  }, 10_000);
 }

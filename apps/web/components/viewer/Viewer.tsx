@@ -375,7 +375,10 @@ export function Viewer({ book, slug, backHref, embed = false, initialPage }: Vie
               <img src={v.logo} alt="로고" className="h-9 max-w-40 object-contain" />
             </a>
           )}
-          <span className="truncate text-sm font-medium text-white/70 [text-shadow:0_1px_8px_rgba(0,0,0,.5)]">{book.title}</span>
+          <span className="flex min-w-0 flex-col leading-tight [text-shadow:0_1px_8px_rgba(0,0,0,.5)]">
+            <span className="truncate text-sm font-semibold text-white/85">{book.title}</span>
+            {book.author && <span className="truncate text-[11px] text-white/45">{book.author}</span>}
+          </span>
         </div>
       )}
 
@@ -446,7 +449,11 @@ export function Viewer({ book, slug, backHref, embed = false, initialPage }: Vie
 
       {/* 아래 도구 막대 */}
       <div className="relative z-20 flex shrink-0 justify-center px-2 pb-3">
-        <div className="flex max-w-full items-center gap-0.5 overflow-x-auto rounded-2xl border border-white/10 bg-black/35 px-1.5 py-1 text-sm text-white/85 shadow-2xl backdrop-blur-xl">
+        <div className="relative flex max-w-full items-center gap-0.5 overflow-x-auto rounded-2xl border border-white/10 bg-black/35 px-1.5 py-1 text-sm text-white/85 shadow-2xl backdrop-blur-xl">
+          {/* 읽은 만큼 */}
+          <span aria-hidden className="pointer-events-none absolute inset-x-3 bottom-0 h-[2px] overflow-hidden rounded-full bg-white/10">
+            <span className="block h-full rounded-full bg-gradient-to-r from-brand-400 to-fuchsia-400 transition-[width] duration-500" style={{ width: `${total > 1 ? ((Math.min(total - 1, current + (spread && current > 0 ? 1 : 0))) / (total - 1)) * 100 : 100}%` }} />
+          </span>
           {(btn.thumbnails || btn.toc || btn.search || btn.bookmarks) && (
             <TB label="목록·검색" active={!!sidebar} onClick={() => setSidebar(sidebar ? null : btn.thumbnails ? "thumbs" : btn.toc ? "toc" : btn.search ? "search" : "bookmarks")}>
               <LayoutGrid className="size-[18px]" />

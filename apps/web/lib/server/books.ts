@@ -182,8 +182,10 @@ export function listPublicBooks(userId: number) {
 
 /** 대시보드용 목록 + 표지 미리보기에 쓸 첫 페이지 */
 export function listBooks(user: UserRow) {
-  const rows = getStore().all<BookRow & { slug: string | null }>(
-    `SELECT b.*, p.slug FROM books b LEFT JOIN publications p ON p.book_id = b.id
+  const rows = getStore().all<BookRow & { slug: string | null; visibility: string | null; views: number }>(
+    `SELECT b.*, p.slug, p.visibility,
+            (SELECT COUNT(*) FROM book_events e WHERE e.book_id = b.id AND e.event = 'view') AS views
+     FROM books b LEFT JOIN publications p ON p.book_id = b.id
      WHERE b.user_id = ? ORDER BY b.updated_at DESC`,
     user.id,
   );
@@ -191,6 +193,17 @@ export function listBooks(user: UserRow) {
     const parsed = Book.safeParse(JSON.parse(r.doc));
     if (!parsed.success) return [];
     const book = parsed.data;
-    return [{ id: r.id, title: r.title, updatedAt: r.updated_at, slug: r.slug, pageCount: book.pages.length, book: { ...book, pages: book.pages.slice(0, 1) } }];
+    return [
+      {
+        id: r.id,
+        title: r.title,
+        updatedAt: r.updated_at,
+        slug: r.slug,
+        visibility: r.visibility,
+        views: Number(r.views) || 0,
+        pageCount: book.pages.length,
+        book: { ...book, pages: book.pages.slice(0, 1) },
+      },
+    ];
   });
 }
