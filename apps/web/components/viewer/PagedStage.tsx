@@ -4,7 +4,7 @@ import { useEffect, useImperativeHandle, useRef } from "react";
 import { showsPageNumber } from "@ebook/layouts";
 import { PageRenderer } from "@ebook/renderer";
 import type { Book } from "@ebook/schema";
-import type { StageHandle } from "./FlipStage";
+import type { StageHandle } from "./BookStage";
 
 // 넘김 효과 없는 두 방식: 슬라이드(옆으로 밀기)·세로 스크롤
 
