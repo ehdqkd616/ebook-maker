@@ -28,10 +28,10 @@ import {
   ShoppingBag,
   Trash2,
   Upload,
-  Wand2,
-} from "lucide-react";
+  Wand2, LayoutTemplate } from "lucide-react";
 import { BookCover } from "@/components/BookCover";
 import { PageThumb } from "@/components/PageThumb";
+import { TemplateGallery } from "./TemplateGallery";
 import { PdfToFlipbook } from "./PdfToFlipbook";
 import { api, ApiError } from "@/lib/api";
 import { docxToMarkdown } from "@/lib/import/docx";
@@ -74,9 +74,9 @@ const EXAMPLE_BODY = `여기에 본문을 붙여 넣으세요. 빈 줄로 문단
 let keySeq = 0;
 const draft = (c: Partial<ComposeChapter> = {}): ChapterDraft => ({ key: ++keySeq, title: "", summary: "", body: "", ...c });
 
-export function NewBookWizard({ startWithPdf = false }: { startWithPdf?: boolean }) {
+export function NewBookWizard({ start }: { start?: string }) {
   const router = useRouter();
-  const [mode, setMode] = useState<"pdf" | "design">(startWithPdf ? "pdf" : "design");
+  const [mode, setMode] = useState<"pdf" | "design" | "template">(start === "pdf" ? "pdf" : start === "template" ? "template" : "design");
   const [step, setStep] = useState(0);
   const [bookType, setBookType] = useState<BookType>("ebook");
   const [sizePreset, setSizePreset] = useState<SizePreset>("A4");
@@ -221,6 +221,9 @@ export function NewBookWizard({ startWithPdf = false }: { startWithPdf?: boolean
           <h1 className="mt-1 text-[28px] font-bold tracking-tight">새 책 만들기</h1>
         </div>
         <div className="seg self-start">
+          <button type="button" aria-pressed={mode === "template"} onClick={() => setMode("template")} className="flex items-center gap-1.5">
+            <LayoutTemplate className="size-4" /> 템플릿
+          </button>
           <button type="button" aria-pressed={mode === "pdf"} onClick={() => setMode("pdf")} className="flex items-center gap-1.5">
             <FileUp className="size-4" /> PDF 그대로
           </button>
@@ -230,7 +233,11 @@ export function NewBookWizard({ startWithPdf = false }: { startWithPdf?: boolean
         </div>
       </div>
 
-      {mode === "pdf" ? (
+      {mode === "template" ? (
+        <div className="mt-8">
+          <TemplateGallery />
+        </div>
+      ) : mode === "pdf" ? (
         <div className="mt-8">
           <PdfToFlipbook title={title} />
         </div>

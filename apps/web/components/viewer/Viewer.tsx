@@ -11,6 +11,7 @@ import {
   ChevronsRight,
   Download,
   LayoutGrid,
+  BookText,
   Maximize,
   Minimize,
   Pause,
@@ -25,6 +26,7 @@ import {
 import { bookToc } from "@ebook/layouts";
 import { DEFAULT_VIEWER, ViewerSettings, type Block, type Book } from "@ebook/schema";
 import { BookStage, PERSPECTIVE_RATIO, type StageHandle } from "./BookStage";
+import { ReaderMode } from "./ReaderMode";
 import { ScrollStage, SlideStage } from "./PagedStage";
 import { ShareDialog } from "./ShareDialog";
 import { playFlipSound } from "./sound";
@@ -57,6 +59,7 @@ export function Viewer({ book, slug, backHref, embed = false, initialPage }: Vie
   const rootRef = useRef<HTMLDivElement>(null);
   const stageBoxRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<StageHandle>(null);
+  const [reader, setReader] = useState(false);
   const [scale, setScale] = useState<number | null>(null);
   const [spread, setSpread] = useState(true);
   const [current, setCurrent] = useState(() => Math.max(0, Math.min(total - 1, (initialPage ?? 1) - 1)));
@@ -241,7 +244,7 @@ export function Viewer({ book, slug, backHref, embed = false, initialPage }: Vie
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
-      if (t.tagName === "INPUT" || t.tagName === "TEXTAREA") return;
+      if (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || document.querySelector("[role=dialog][aria-modal]")) return;
       if (e.key === "ArrowRight" || e.key === "PageDown") next();
       else if (e.key === "ArrowLeft" || e.key === "PageUp") prev();
       else if (e.key === "Home") go(0);
@@ -290,6 +293,7 @@ export function Viewer({ book, slug, backHref, embed = false, initialPage }: Vie
       if (block.type === "audio") return toggleAudio(el, block.data.src);
       if (block.type === "video" && !block.action) return setPopup({ kind: "video", src: block.data.src });
       if (block.type === "product" && !block.action) return setPopup({ kind: "product", data: block.data });
+      if (block.type === "form") return setPopup({ kind: "form", data: block.data, blockId: block.id, page: current + 1 });
       const a = block.action;
       if (!a) return;
       if (a.type === "url") window.open(a.href, "_blank", "noopener,noreferrer");
@@ -453,6 +457,11 @@ export function Viewer({ book, slug, backHref, embed = false, initialPage }: Vie
               <Search className="size-[18px]" />
             </TB>
           )}
+          {btn.reader && (
+            <TB label="텍스트로 읽기" onClick={() => setReader(true)}>
+              <BookText className="size-[18px]" />
+            </TB>
+          )}
           <Sep />
           <TB label="처음으로" disabled={current === 0} onClick={() => go(0)} className="hidden sm:grid"><ChevronsLeft className="size-[18px]" /></TB>
           <TB label="이전 페이지" disabled={current === 0} onClick={prev}><ChevronLeft className="size-5" /></TB>
@@ -523,7 +532,8 @@ export function Viewer({ book, slug, backHref, embed = false, initialPage }: Vie
         </div>
       )}
       {shareOpen && slug && <ShareDialog slug={slug} title={book.title} page={current + 1} onClose={() => setShareOpen(false)} />}
-      {popup && <ViewerPopup content={popup} onClose={() => setPopup(null)} />}
+      {popup && <ViewerPopup content={popup} slug={slug} onClose={() => setPopup(null)} />}
+      {reader && <ReaderMode book={book} current={current} onClose={() => setReader(false)} onGo={go} />}
     </div>
   );
 }

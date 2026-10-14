@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import {
+  BookDown,
+  Mail,
   AlertTriangle,
   Code2,
   Crosshair,
@@ -92,6 +94,7 @@ const INTERACTIVE_BUTTONS: { kind: NewBlockKind; icon: typeof Type }[] = [
   { kind: "hotspot", icon: Crosshair },
   { kind: "product", icon: Tag },
   { kind: "embed", icon: Code2 },
+  { kind: "form", icon: Mail },
 ];
 
 const ZOOMS = ["fit", 0.5, 0.75, 1, 1.25, 1.5] as const;
@@ -352,6 +355,22 @@ export function BookEditor({
           </button>
           <button type="button" className="btn-ghost" onClick={() => openAfterSave(`/books/${book.id}/print`)} title="PDF로 저장·인쇄">
             <Printer className="size-4" /> <span className="hidden sm:inline">PDF</span>
+          </button>
+          <button
+            type="button"
+            className="btn-ghost"
+            title="EPUB(전자책 파일)로 내려받기 — 고정 레이아웃"
+            onClick={async () => {
+              try {
+                const { downloadEpub } = await import("@/lib/export/epub");
+                await downloadEpub(book, (d, t) => setNotice(`EPUB 만드는 중… (${d}/${t}쪽)`));
+                flash("EPUB 파일을 내려받았어요.");
+              } catch (e) {
+                flash(e instanceof Error ? e.message : "EPUB을 만들지 못했어요.");
+              }
+            }}
+          >
+            <BookDown className="size-4" /> <span className="hidden sm:inline">EPUB</span>
           </button>
           <button type="button" className="btn-primary ml-1 py-2 text-sm" onClick={() => setPublishOpen(true)}>
             <Share2 className="size-4" /> {publication ? "공유" : "퍼블리시"}

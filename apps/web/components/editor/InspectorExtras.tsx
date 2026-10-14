@@ -4,6 +4,8 @@ import { ArrowDown, ArrowUp, Eye, EyeOff, Lock, Trash2, Unlock } from "lucide-re
 import { videoInfo } from "@ebook/renderer";
 import {
   ANIMATIONS,
+  LEAD_FIELD_LABEL,
+  LEAD_FIELDS,
   DEFAULT_VIEWER,
   ViewerSettings,
   type Block,
@@ -177,6 +179,48 @@ export function MediaSections({
           </div>
         </Section>
       );
+    case "form": {
+      const setForm = (patch: Partial<Extract<Block, { type: "form" }>["data"]>, key?: string) =>
+        set((b) => (b.type === "form" ? { ...b, data: { ...b.data, ...patch } } : b), key);
+      return (
+        <Section title="연락처 받기">
+          <p className="text-xs text-neutral-400">독자가 버튼을 누르면 입력 창이 떠요. 보낸 내용은 이 책의 <b>통계</b> 화면에 모이고 CSV로 받을 수 있어요.</p>
+          <Row label="버튼 글자"><input className={`${small} w-40`} value={block.data.text} maxLength={80} onChange={(e) => setForm({ text: e.target.value }, `ft:${block.id}`)} /></Row>
+          <input className={small} placeholder="창 제목" value={block.data.title} maxLength={120} onChange={(e) => setForm({ title: e.target.value }, `fti:${block.id}`)} />
+          <textarea className={`${small} min-h-16`} placeholder="설명 (선택)" value={block.data.description ?? ""} maxLength={1000} onChange={(e) => setForm({ description: e.target.value || undefined }, `fd:${block.id}`)} />
+          <div className="flex flex-col gap-1.5">
+            <span className="text-neutral-600">받을 항목</span>
+            <div className="grid grid-cols-2 gap-1.5">
+              {LEAD_FIELDS.map((f) => {
+                const on = block.data.fields.includes(f);
+                return (
+                  <button
+                    key={f}
+                    type="button"
+                    aria-pressed={on}
+                    className={`btn justify-start ${on ? "border-brand-300 bg-brand-50 text-brand-700" : ""}`}
+                    onClick={() => {
+                      const next = on ? block.data.fields.filter((x) => x !== f) : LEAD_FIELDS.filter((x) => x === f || block.data.fields.includes(x));
+                      if (next.length) setForm({ fields: next });
+                    }}
+                  >
+                    {on ? "✓ " : ""}{LEAD_FIELD_LABEL[f]}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <Row label="보내기 버튼"><input className={`${small} w-40`} value={block.data.submitText ?? ""} placeholder="보내기" maxLength={40} onChange={(e) => setForm({ submitText: e.target.value || undefined }, `fs:${block.id}`)} /></Row>
+          <input className={small} placeholder="보낸 뒤 보여 줄 말" value={block.data.successText ?? ""} maxLength={300} onChange={(e) => setForm({ successText: e.target.value || undefined }, `fsu:${block.id}`)} />
+        </Section>
+      );
+    }
+    case "paragraph":
+      return (
+        <Section title="본문 장식">
+          <Toggle label="첫 글자 크게 (드롭캡)" checked={!!block.data.dropCap} onChange={(x) => set((b) => (b.type === "paragraph" ? { ...b, data: { ...b.data, dropCap: x || undefined } } : b))} />
+        </Section>
+      );
     case "hotspot":
       return (
         <Section title="핫스팟">
@@ -205,7 +249,7 @@ function swap<T>(arr: T[], i: number, j: number) {
 
 // ── 동작 (눌렀을 때) ───────────────────────────────────
 
-const ACTION_LESS = new Set(["toc", "slideshow", "embed", "link", "audio"]);
+const ACTION_LESS = new Set(["toc", "slideshow", "embed", "link", "audio", "form"]);
 
 export function ActionSection({ block, set, pageCount, pickImageUrl }: { block: Block; set: (fn: (b: Block) => Block, key?: string) => void; pageCount: number; pickImageUrl: () => Promise<string | null> }) {
   if (ACTION_LESS.has(block.type)) return null;
@@ -368,7 +412,7 @@ export function LockHide({ block, set }: { block: Block; set: (fn: (b: Block) =>
 
 const LAYER_LABEL: Record<Block["type"], string> = {
   heading: "제목", paragraph: "본문", list: "목록", quote: "인용", image: "이미지", shape: "도형", audio: "오디오", video: "동영상",
-  link: "링크", toc: "목차", slideshow: "슬라이드쇼", product: "상품", button: "버튼", hotspot: "핫스팟", embed: "웹 삽입",
+  link: "링크", toc: "목차", slideshow: "슬라이드쇼", product: "상품", button: "버튼", hotspot: "핫스팟", embed: "웹 삽입", form: "연락처 받기",
 };
 
 function layerName(b: Block) {
@@ -419,6 +463,7 @@ const BUTTON_LABEL: Record<keyof ViewerSettings["buttons"], string> = {
   bookmarks: "책갈피",
   autoplay: "자동 넘김",
   sound: "소리 켜고 끄기",
+  reader: "텍스트로 읽기",
 };
 
 export function ViewerPanel({ book, update, pickImageUrl, pickAudioUrl }: { book: Book; update: Update; pickImageUrl: () => Promise<string | null>; pickAudioUrl: () => Promise<string | null> }) {

@@ -23,7 +23,7 @@ export type InspectorTab = "block" | "page" | "book" | "viewer";
 const SIZE_LABEL: Record<SizePreset, string> = { A4: "A4 세로", LETTER: "레터", SQUARE: "정사각형", LANDSCAPE: "가로형" };
 const TYPE_LABEL: Record<Block["type"], string> = {
   heading: "제목", paragraph: "본문", list: "목록", quote: "인용", image: "이미지", shape: "도형", audio: "오디오", video: "동영상", link: "링크", toc: "목차",
-  slideshow: "슬라이드쇼", product: "상품 태그", button: "버튼", hotspot: "핫스팟", embed: "임베드",
+  slideshow: "슬라이드쇼", product: "상품 태그", button: "버튼", hotspot: "핫스팟", embed: "임베드", form: "연락처 받기",
 };
 
 /** <input type="color">는 #rrggbb만 받는다 */

@@ -1,18 +1,21 @@
 "use client";
 
-import { ExternalLink, X } from "lucide-react";
+import { useState } from "react";
+import { CheckCircle2, ExternalLink, Loader2, X } from "lucide-react";
 import { videoEmbedUrl } from "@ebook/renderer";
-import type { Block } from "@ebook/schema";
+import { LEAD_FIELD_LABEL, type Block, type LeadField } from "@ebook/schema";
 
 type ProductData = Extract<Block, { type: "product" }>["data"];
+type FormData_ = Extract<Block, { type: "form" }>["data"];
 export type PopupContent =
   | { kind: "video"; src: string }
   | { kind: "product"; data: ProductData }
-  | { kind: "info"; title?: string; text?: string; image?: string; video?: string };
+  | { kind: "info"; title?: string; text?: string; image?: string; video?: string }
+  | { kind: "form"; data: FormData_; blockId: string; page: number };
 
 const safeUrl = (u?: string) => (u && /^(https?:|mailto:|\/)/i.test(u.trim()) ? u.trim() : undefined);
 
-export function ViewerPopup({ content, onClose }: { content: PopupContent; onClose: () => void }) {
+export function ViewerPopup({ content, onClose, slug }: { content: PopupContent; onClose: () => void; slug?: string }) {
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/65 p-4 text-ink backdrop-blur-sm" onClick={onClose}>
       <div
@@ -43,6 +46,7 @@ export function ViewerPopup({ content, onClose }: { content: PopupContent; onClo
             </div>
           </div>
         )}
+        {content.kind === "form" && <LeadForm content={content} slug={slug} />}
         {content.kind === "info" && (
           <div>
             {content.video && <Player src={content.video} />}
@@ -73,5 +77,73 @@ function Player({ src }: { src: string }) {
         <video src={src} controls autoPlay playsInline className="size-full" />
       )}
     </div>
+  );
+}
+
+const INPUT: Record<LeadField, { type: string; autoComplete: string }> = {
+  name: { type: "text", autoComplete: "name" },
+  email: { type: "email", autoComplete: "email" },
+  phone: { type: "tel", autoComplete: "tel" },
+  message: { type: "text", autoComplete: "off" },
+};
+
+/** 연락처 받기 — 미리보기(slug 없음)에서는 보내지 않고 모양만 보여 준다 */
+function LeadForm({ content, slug }: { content: Extract<PopupContent, { kind: "form" }>; slug?: string }) {
+  const { data } = content;
+  const [values, setValues] = useState<Partial<Record<LeadField, string>>>({});
+  const [state, setState] = useState<"idle" | "sending" | "done">("idle");
+  const [error, setError] = useState("");
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    if (!slug || slug === "sample") return setState("done");
+    setState("sending");
+    try {
+      const res = await fetch(`/api/public/${slug}/leads`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blockId: content.blockId, page: content.page, values }),
+      });
+      if (!res.ok) throw new Error(((await res.json().catch(() => null)) as { error?: { message?: string } } | null)?.error?.message ?? "보내지 못했어요.");
+      setState("done");
+    } catch (err) {
+      setState("idle");
+      setError(err instanceof Error ? err.message : "보내지 못했어요.");
+    }
+  }
+
+  if (state === "done") {
+    return (
+      <div className="flex flex-col items-center gap-3 px-8 py-12 text-center">
+        <CheckCircle2 className="size-12 text-emerald-500" />
+        <p className="text-lg font-semibold">{data.successText || "고맙습니다! 잘 받았어요."}</p>
+        {!slug && <p className="text-xs text-neutral-400">미리보기에서는 실제로 보내지 않아요.</p>}
+      </div>
+    );
+  }
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-4 p-7">
+      <div className="pr-8">
+        <h3 className="text-xl font-bold">{data.title}</h3>
+        {data.description && <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-neutral-600">{data.description}</p>}
+      </div>
+      {data.fields.map((f) => (
+        <label key={f} className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-neutral-700">{LEAD_FIELD_LABEL[f]}</span>
+          {f === "message" ? (
+            <textarea className="input min-h-24" required maxLength={2000} value={values[f] ?? ""} onChange={(e) => setValues((v) => ({ ...v, [f]: e.target.value }))} />
+          ) : (
+            <input className="input" required {...INPUT[f]} maxLength={f === "email" ? 200 : 60} value={values[f] ?? ""} onChange={(e) => setValues((v) => ({ ...v, [f]: e.target.value }))} />
+          )}
+        </label>
+      ))}
+      {error && <p className="banner-error">{error}</p>}
+      <button type="submit" className="btn-primary mt-1" disabled={state === "sending"}>
+        {state === "sending" && <Loader2 className="size-4 animate-spin" />}
+        {data.submitText || "보내기"}
+      </button>
+      <p className="text-center text-[11px] text-neutral-400">보낸 내용은 이 책을 만든 사람만 볼 수 있어요.</p>
+    </form>
   );
 }

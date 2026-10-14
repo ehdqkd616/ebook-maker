@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Eye, MousePointerClick, Smartphone, Users, BookOpen } from "lucide-react";
+import { ArrowLeft, Eye, MousePointerClick, Smartphone, Users, BookOpen, Download, Mail } from "lucide-react";
+import { LEAD_FIELD_LABEL, LEAD_FIELDS, type LeadField } from "@ebook/schema";
 import { api } from "@/lib/api";
 import { LogoMark } from "./Logo";
 
@@ -19,10 +20,17 @@ type Stats = {
 
 const RANGES = [7, 30, 90] as const;
 
+type Lead = { id: number; page: number | null; createdAt: number } & Partial<Record<LeadField, string>>;
+
 export function BookStats({ bookId, title, pageCount, slug, blockLabels }: { bookId: string; title: string; pageCount: number; slug: string | null; blockLabels: Record<string, string> }) {
   const [days, setDays] = useState<number>(30);
   const [s, setS] = useState<Stats | null>(null);
   const [error, setError] = useState("");
+  const [leads, setLeads] = useState<Lead[] | null>(null);
+  useEffect(() => {
+    api<{ leads: Lead[] }>(`/api/books/${bookId}/leads`).then((r) => setLeads(r.leads), () => setLeads([]));
+  }, [bookId]);
+  const leadCols = LEAD_FIELDS.filter((f) => leads?.some((l) => l[f]));
   useEffect(() => {
     setS(null);
     api<Stats>(`/api/books/${bookId}/stats?days=${days}`).then(setS, (e) => setError(e.message));
@@ -110,6 +118,36 @@ export function BookStats({ bookId, title, pageCount, slug, blockLabels }: { boo
             )}
           </section>
         </div>
+
+        <section className="card">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="flex items-center gap-2 font-semibold"><Mail className="size-4 text-brand-600" /> 모은 연락처 <span className="text-neutral-400">{leads?.length ?? 0}</span></h2>
+              <p className="muted text-sm">책 안의 &quot;연락처 받기&quot; 폼으로 독자가 보낸 내용이에요 (기간과 상관없이 최근 1000건).</p>
+            </div>
+            {!!leads?.length && (
+              <a className="btn" href={`/api/books/${bookId}/leads?format=csv`}><Download className="size-4" /> CSV 받기</a>
+            )}
+          </div>
+          {leads && leads.length === 0 ? (
+            <p className="muted text-sm">아직 없어요. 에디터의 인터랙티브 요소에서 <b>연락처 받기</b>를 넣어 보세요.</p>
+          ) : (
+            <div className="max-h-96 overflow-auto">
+              <table className="grid-table">
+                <thead><tr><th>받은 시각</th><th className="text-right">쪽</th>{leadCols.map((f) => <th key={f}>{LEAD_FIELD_LABEL[f]}</th>)}</tr></thead>
+                <tbody>
+                  {leads?.map((l) => (
+                    <tr key={l.id}>
+                      <td className="whitespace-nowrap text-neutral-500 tabular-nums">{new Date(l.createdAt).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" })}</td>
+                      <td className="text-right tabular-nums">{l.page ?? "-"}</td>
+                      {leadCols.map((f) => <td key={f} className="max-w-72 truncate" title={l[f]}>{l[f] ?? ""}</td>)}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       </main>
     </div>
   );

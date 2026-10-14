@@ -203,8 +203,8 @@ ol.eb-list { list-style: decimal; }
 }
 
 /* 버튼 */
-.eb-button { display: grid; place-items: center; font-weight: 700; font-size: 17px; border-radius: 10px; transition: transform .15s, filter .15s; }
-.eb-button:hover { transform: translateY(-1px); filter: brightness(1.06); }
+.eb-button, .eb-form { display: grid; place-items: center; font-weight: 700; font-size: 17px; border-radius: 10px; transition: transform .15s, filter .15s; }
+.eb-button:hover, .eb-form:hover { transform: translateY(-1px); filter: brightness(1.06); }
 .eb-button-solid { background: var(--eb-primary); color: #fff; }
 .eb-button-outline { background: transparent; color: var(--eb-primary); border: 2px solid var(--eb-primary) !important; }
 .eb-button-pill { background: var(--eb-primary); color: #fff; border-radius: 999px; }
@@ -277,3 +277,14 @@ h3.eb-heading { color: var(--eb-primary); }
 .eb-layout-back-cover { color: #fff; text-align: center; }
 .eb-layout-back-cover .eb-slot-title { display: flex; align-items: flex-end; justify-content: center; font-size: 36px; }
 .eb-layout-back-cover .eb-slot-message { font-size: 18px; opacity: 0.85; }
+
+/* 첫 글자 장식 (드롭캡) */
+.eb-dropcap p:first-child::first-letter {
+  float: left;
+  margin: 0.06em 0.12em 0 0;
+  font-family: var(--eb-heading-font);
+  font-size: 3.3em;
+  font-weight: 700;
+  line-height: 0.82;
+  color: var(--eb-primary);
+}

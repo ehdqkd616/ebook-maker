@@ -109,7 +109,7 @@ function BlockView({ block, isStatic }: { block: Block; isStatic: boolean }) {
   // 뷰어가 눌림을 처리할 수 있게 표시해 둔다 (page-flip은 a·button에 대한 클릭만 넘겨준다)
   const act = { "data-eb-block": block.id } as Record<string, string>;
   const content = renderContent(block, className, style, isStatic);
-  if (!block.action || ["button", "hotspot", "product", "video", "audio", "slideshow", "embed", "link"].includes(block.type)) return content;
+  if (!block.action || ["button", "form", "hotspot", "product", "video", "audio", "slideshow", "embed", "link"].includes(block.type)) return content;
   // 일반 블록에 동작이 붙으면 같은 자리에 투명한 버튼을 덮는다
   return (
     <>
@@ -147,7 +147,7 @@ function renderContent(block: Block, className: string, style: CSSProperties, is
     }
     case "paragraph":
       return (
-        <div className={className} style={style}>
+        <div className={block.data.dropCap ? `${className} eb-dropcap` : className} style={style}>
           {splitParagraphs(block.data.text).map((p, i) => <p key={i}>{p}</p>)}
         </div>
       );
@@ -249,6 +249,12 @@ function renderContent(block: Block, className: string, style: CSSProperties, is
       return (
         <Btn isStatic={isStatic} className={`${className} eb-interactive eb-button-${block.data.variant}`} style={style} {...act}>
           {block.data.text}
+        </Btn>
+      );
+    case "form":
+      return (
+        <Btn isStatic={isStatic} className={`${className} eb-interactive eb-button-solid`} style={style} aria-label={block.data.title || block.data.text} {...act}>
+          <span>{block.data.text}</span>
         </Btn>
       );
     case "hotspot":

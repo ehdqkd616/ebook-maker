@@ -116,6 +116,17 @@ const SCHEMA = `
   );
   CREATE INDEX IF NOT EXISTS idx_book_events ON book_events (book_id, created_at);
 
+  -- 공개 플립북의 "연락처 받기" 폼으로 들어온 내용 (책 주인만 본다)
+  CREATE TABLE IF NOT EXISTS book_leads (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    book_id     TEXT NOT NULL,
+    block_id    TEXT NOT NULL,
+    page        INTEGER,
+    data        TEXT NOT NULL,                          -- {"name":…, "email":…} JSON
+    created_at  INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_book_leads ON book_leads (book_id, created_at);
+
   -- 잔액 컬럼 없이 +/- 기록만 쌓는다 (SPEC 12)
   CREATE TABLE IF NOT EXISTS credit_ledger (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,

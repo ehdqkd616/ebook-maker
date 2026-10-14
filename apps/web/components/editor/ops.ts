@@ -13,7 +13,7 @@ export function updateBlock(book: Book, pageId: string, blockId: string, fn: (b:
 
 export type NewBlockKind =
   | "heading" | "paragraph" | "list" | "quote" | "image" | "rect" | "ellipse" | "line" | "link"
-  | "video" | "audio" | "slideshow" | "product" | "button" | "hotspot" | "embed";
+  | "video" | "audio" | "slideshow" | "product" | "button" | "hotspot" | "embed" | "form";
 
 export const NEW_BLOCK_LABELS: Record<NewBlockKind, string> = {
   heading: "제목",
@@ -32,6 +32,7 @@ export const NEW_BLOCK_LABELS: Record<NewBlockKind, string> = {
   button: "버튼",
   hotspot: "핫스팟(클릭 영역)",
   embed: "웹 삽입",
+  form: "연락처 받기",
 };
 
 /** 페이지 가운데에 새 블록을 만든다 */
@@ -77,6 +78,12 @@ export function makeBlock(kind: NewBlockKind, book: Book): Block {
       return { ...box(48, 48), type: "product", data: { name: "상품 이름", price: "₩10,000", description: "상품 설명을 적어 주세요.", buttonText: "구매하기" } };
     case "button":
       return { ...box(W * 0.3, 52), type: "button", data: { text: "자세히 보기", variant: "solid" }, action: { type: "url", href: "https://" } };
+    case "form":
+      return {
+        ...box(W * 0.36, 56),
+        type: "form",
+        data: { text: "소식 받기", title: "새 소식을 보내 드릴게요", description: "이메일을 남겨 주시면 새 책과 소식을 알려 드려요.", fields: ["name", "email"], submitText: "보내기", successText: "고맙습니다! 곧 연락드릴게요." },
+      };
     case "hotspot":
       return { ...box(W * 0.3, H * 0.15), type: "hotspot", data: { pulse: false }, action: { type: "popup", title: "제목", text: "눌렀을 때 보여 줄 내용" } };
     case "embed":

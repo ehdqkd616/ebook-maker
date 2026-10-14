@@ -101,9 +101,14 @@ const blockBase = {
   style: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
 };
 
+export const LEAD_FIELDS = ["name", "email", "phone", "message"] as const;
+export type LeadField = (typeof LEAD_FIELDS)[number];
+export const LEAD_FIELD_LABEL: Record<LeadField, string> = { name: "이름", email: "이메일", phone: "전화번호", message: "남길 말" };
+
 export const Block = z.discriminatedUnion("type", [
   z.object({ ...blockBase, type: z.literal("heading"), data: z.object({ text: z.string(), level: z.number().int().min(1).max(3) }) }),
-  z.object({ ...blockBase, type: z.literal("paragraph"), data: z.object({ text: z.string() }) }),
+  // dropCap: 첫 글자를 크게 (책 본문 첫 문단 장식)
+  z.object({ ...blockBase, type: z.literal("paragraph"), data: z.object({ text: z.string(), dropCap: z.boolean().optional() }) }),
   z.object({ ...blockBase, type: z.literal("list"), data: z.object({ items: z.array(z.string()), ordered: z.boolean().default(false) }) }),
   z.object({ ...blockBase, type: z.literal("quote"), data: z.object({ text: z.string(), cite: z.string().optional() }) }),
   z.object({ ...blockBase, type: z.literal("image"), data: z.object({ src: z.string(), alt: z.string().default(""), fit: z.enum(["cover", "contain"]).default("cover") }) }),
@@ -143,6 +148,19 @@ export const Block = z.discriminatedUnion("type", [
   // 외부 웹 콘텐츠(iframe). https 주소만
   z.object({ ...blockBase, type: z.literal("embed"), data: z.object({ url: z.string().max(2000) }) }),
   z.object({ ...blockBase, type: z.literal("link"), data: z.object({ text: z.string(), href: z.string() }) }),
+  // 연락처 받기: 누르면 이름·이메일 등을 입력하는 창이 뜨고, 보낸 내용은 책 주인의 통계 화면에 모인다
+  z.object({
+    ...blockBase,
+    type: z.literal("form"),
+    data: z.object({
+      text: z.string().max(80), // 버튼 글자
+      title: z.string().max(120),
+      description: z.string().max(1000).optional(),
+      fields: z.array(z.enum(LEAD_FIELDS)).min(1).max(4),
+      submitText: z.string().max(40).optional(),
+      successText: z.string().max(300).optional(),
+    }),
+  }),
   // 목차: 챕터 시작 페이지에서 자동으로 채운다 (refreshToc)
   z.object({
     ...blockBase,
@@ -188,6 +206,7 @@ export const ViewerSettings = z.object({
       bookmarks: z.boolean().default(true),
       autoplay: z.boolean().default(true),
       sound: z.boolean().default(true),
+      reader: z.boolean().default(true), // 텍스트로 읽기
     })
     .prefault({}),
 });
