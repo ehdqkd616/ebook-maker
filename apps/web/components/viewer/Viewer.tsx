@@ -528,7 +528,7 @@ export function Viewer({ book, slug, backHref, embed = false, initialPage }: Vie
           <label className="flex items-center gap-1 px-1 tabular-nums">
             <input
               aria-label="쪽 번호로 이동"
-              key={current}
+              key={pageLabel}
               defaultValue={pageLabel}
               className="w-14 rounded-lg bg-white/10 px-1.5 py-1 text-center outline-none focus:bg-white/20"
               onFocus={(e) => e.target.select()}

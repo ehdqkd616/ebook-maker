@@ -58,3 +58,23 @@ describe.skipIf(!existsSync(ROOT))("FlipHTML5 가져오기 — 세광 중학 음
     console.log("report", JSON.stringify(report), "uploads", uploads.length);
   });
 });
+
+const ROOT2 = "/home/user/segwang_ebook_project2";
+describe.skipIf(!existsSync(ROOT2))("FlipHTML5 가져오기 — 세광 중학 음악 2", () => {
+  it("작은따옴표가 든 글도 읽고, 이름 붙은 구간(코드 이름)과 트랙별 구간을 옮긴다", async () => {
+    const { book, report } = await convertFlipHtml5({
+      text: async (p) => (existsSync(path.join(ROOT2, p)) ? readFileSync(path.join(ROOT2, p), "utf8") : null),
+      exists: (p) => existsSync(path.join(ROOT2, p)),
+      upload: async (p) => `/api/files/${p.replace(/\W/g, "_")}`,
+    });
+    const doc = flipBook(book, getThemePreset("classic-navy").theme);
+    expect(Book.safeParse(doc).success).toBe(true);
+    expect(report.pages).toBe(124);
+    expect(report.missing).toBe(0);
+    const players = doc.pages.flatMap((p) => p.blocks).filter((b) => b.type === "player");
+    expect(players.length).toBeGreaterThan(50);
+    const labels = players.flatMap((b) => (b.type === "player" ? b.data.verses.flatMap((v) => v.sections.map((s) => s.label)) : [])).filter(Boolean);
+    expect(labels).toEqual(expect.arrayContaining(["C", "D7", "G"]));
+    expect(players.some((b) => b.type === "player" && b.data.tracks.some((t) => t.label === "남성"))).toBe(true);
+  });
+});

@@ -5,6 +5,7 @@ import {
   BookDown,
   BookOpen,
   FileUp,
+  FolderInput,
   LayoutTemplate,
   Lock,
   MousePointerClick,
@@ -198,6 +199,10 @@ async function Dashboard({ user }: { user: NonNullable<Awaited<ReturnType<typeof
           </Link>
         ))}
       </div>
+
+      <Link href="/books/new?start=flip" className="-mt-6 flex items-center gap-2 self-start rounded-xl px-1 text-sm text-neutral-500 hover:text-brand-700">
+        <FolderInput className="size-4" /> FlipHTML5로 만든 책이 있나요? 폴더째 가져와서 이어서 고치기 <ArrowRight className="size-3.5" />
+      </Link>
 
       <BookShelf items={books} />
     </div>

@@ -99,7 +99,7 @@ function playerFromVideo(entry: VideoEntry, title: string): Extract<Block, { typ
     return { label, src: (entry[f] as string).trim(), verses: own && JSON.stringify(own) !== JSON.stringify(common) ? own : undefined };
   });
   if (!tracks.length) return null;
-  return { title, tracks: tracks.slice(0, 20), verses: common, icon: "music" };
+  return { title: title || undefined, tracks: tracks.slice(0, 20), verses: common, icon: "music" };
 }
 
 function outlineToToc(nodes: FOutline[], level = 1, out: TocEntry[] = []): TocEntry[] {
@@ -264,7 +264,9 @@ export async function convertFlipHtml5(
         const frame = it.actionList?.find((a) => a.iframe)?.iframe;
         const key = frame ? new URLSearchParams(String(frame.url ?? "").split("?")[1] ?? "").get("videoUrl") : null;
         const entry = key ? videos[key] : undefined;
-        let data = entry ? playerFromVideo(entry, it.name && !/^pluginMusic/i.test(it.name) ? it.name : key!) : null;
+        // 요소 이름이 "오디오"·"음악" 같은 기본 이름이면 제목으로 쓰지 않는다
+        const named = it.name && !/^(pluginMusic|오디오|음악|audio|music|사운드)\s*(\(\d+\))?$/i.test(it.name.trim()) ? it.name.trim() : "";
+        let data = entry ? playerFromVideo(entry, named) : null;
         if (!data && it.musicList?.length) {
           const tracks = (await Promise.all(it.musicList.slice(0, 20).map(async (m, k) => ({ label: m.name?.replace(/\.[a-z0-9]+$/i, "").slice(0, 30) || `트랙 ${k + 1}`, src: (await asset(m.fileName ?? m.url)) ?? "" })))).filter((t) => t.src);
           if (tracks.length) data = { title: tracks[0].label, tracks, verses: [], icon: "headphones" };

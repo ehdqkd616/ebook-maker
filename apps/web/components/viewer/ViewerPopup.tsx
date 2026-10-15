@@ -21,7 +21,7 @@ export function ViewerPopup({ content, onClose, slug }: { content: PopupContent;
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/65 p-4 text-ink backdrop-blur-sm" onClick={onClose}>
       <div
-        className={`relative max-h-[90dvh] w-full overflow-auto rounded-2xl bg-white shadow-2xl ${content.kind === "video" ? "max-w-4xl bg-black" : content.kind === "player" ? "max-w-4xl bg-[#15131d]" : content.kind === "info" && (content.images?.length ?? 0) > 1 ? "max-w-3xl" : "max-w-lg"}`}
+        className={`relative max-h-[90dvh] w-full overflow-auto rounded-2xl bg-white shadow-2xl ${content.kind === "video" ? "max-w-4xl bg-black" : content.kind === "player" ? "max-w-4xl bg-[#15131d]" : content.kind === "info" && (content.images?.length || content.image) && !content.video ? "max-w-5xl" : "max-w-lg"}`}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal
@@ -158,18 +158,20 @@ function Gallery({ images, allowSave, title }: { images: string[]; allowSave: bo
   return (
     <div className="relative bg-neutral-50">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt={title ?? ""} className="max-h-[70dvh] w-full object-contain" />
+      <img src={src} alt={title ?? ""} className="max-h-[75dvh] w-full object-contain p-2" />
       {images.length > 1 && (
         <>
           <button type="button" aria-label="이전 그림" disabled={i === 0} onClick={() => setI(i - 1)} className="absolute top-1/2 left-3 grid size-10 -translate-y-1/2 place-items-center rounded-full bg-black/45 text-white hover:bg-black/65 disabled:opacity-0"><ChevronLeft className="size-5" /></button>
           <button type="button" aria-label="다음 그림" disabled={i === images.length - 1} onClick={() => setI(i + 1)} className="absolute top-1/2 right-3 grid size-10 -translate-y-1/2 place-items-center rounded-full bg-black/45 text-white hover:bg-black/65 disabled:opacity-0"><ChevronRight className="size-5" /></button>
-          <span className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-2.5 py-0.5 text-xs text-white tabular-nums">{i + 1} / {images.length}</span>
+          <span className="absolute top-3 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-2.5 py-0.5 text-xs text-white tabular-nums">{i + 1} / {images.length}</span>
         </>
       )}
       {allowSave && (
-        <a href={src} download={name} className="absolute right-3 bottom-3 flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold text-ink shadow hover:bg-white">
-          <Download className="size-3.5" /> 그림 저장
-        </a>
+        <div className="flex justify-end border-t border-black/5 bg-white px-3 py-2">
+          <a href={src} download={name} className="btn px-3 py-1.5 text-xs">
+            <Download className="size-3.5" /> 그림 저장
+          </a>
+        </div>
       )}
     </div>
   );
