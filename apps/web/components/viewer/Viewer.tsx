@@ -294,11 +294,17 @@ export function Viewer({ book, slug, backHref, embed = false, initialPage }: Vie
       if (block.type === "video" && !block.action) return setPopup({ kind: "video", src: block.data.src });
       if (block.type === "product" && !block.action) return setPopup({ kind: "product", data: block.data });
       if (block.type === "form") return setPopup({ kind: "form", data: block.data, blockId: block.id, page: current + 1 });
+      if (block.type === "player" && !block.action) return setPopup({ kind: "player", data: block.data });
       const a = block.action;
       if (!a) return;
-      if (a.type === "url") window.open(a.href, "_blank", "noopener,noreferrer");
+      if (a.type === "url") {
+        // http(s)·메일·전화만 연다 (javascript: 등은 막는다). 전화·메일은 같은 창에서 앱으로 넘긴다
+        const href = a.href.trim();
+        if (/^(mailto|tel):/i.test(href)) window.location.href = href;
+        else if (/^https?:\/\//i.test(href) || href.startsWith("/")) window.open(href, "_blank", "noopener,noreferrer");
+      }
       else if (a.type === "page") go(a.page - 1);
-      else setPopup({ kind: "info", title: a.title, text: a.text, image: a.image, video: a.video });
+      else setPopup({ kind: "info", title: a.title, text: a.text, image: a.image, images: a.images, video: a.video, allowSave: a.allowSave });
     };
     root.addEventListener("click", onClick);
     return () => root.removeEventListener("click", onClick);

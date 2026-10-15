@@ -14,6 +14,7 @@ import {
   type Page,
 } from "@ebook/schema";
 import { reorderBlock, setStyle, updateBlock } from "./ops";
+import { IconSection, PlayerSection } from "./PlayerEditor";
 
 // 속성 패널 추가 부분 — 멀티미디어 블록 편집, 동작(클릭 시), 애니메이션, 모양(테두리·그림자),
 // 레이어 목록, 뷰어 설정
@@ -72,12 +73,14 @@ export function MediaSections({
   onPickMedia,
   onAddSlides,
   pickImageUrl,
+  pickMediaUrl,
 }: {
   block: Block;
   set: (fn: (b: Block) => Block, key?: string) => void;
   onPickMedia: (blockId: string, accept: string) => void;
   onAddSlides: (blockId: string) => void;
   pickImageUrl: () => Promise<string | null>;
+  pickMediaUrl?: () => Promise<string | null>;
 }) {
   switch (block.type) {
     case "video": {
@@ -179,6 +182,10 @@ export function MediaSections({
           </div>
         </Section>
       );
+    case "icon":
+      return <IconSection block={block} set={set} />;
+    case "player":
+      return <PlayerSection block={block} set={set} pickMediaUrl={pickMediaUrl ?? (async () => null)} />;
     case "form": {
       const setForm = (patch: Partial<Extract<Block, { type: "form" }>["data"]>, key?: string) =>
         set((b) => (b.type === "form" ? { ...b, data: { ...b.data, ...patch } } : b), key);
@@ -256,7 +263,7 @@ export function ActionSection({ block, set, pageCount, pickImageUrl }: { block: 
   const a = block.action;
   const kind = a?.type ?? "none";
   const setAction = (next: BlockAction | undefined, key?: string) => set((b) => ({ ...b, action: next }) as Block, key);
-  const builtIn = block.type === "video" ? "누르면 동영상 재생" : block.type === "product" ? "누르면 상품 카드" : "아무 동작 없음";
+  const builtIn = block.type === "video" ? "누르면 동영상 재생" : block.type === "product" ? "누르면 상품 카드" : block.type === "player" ? "누르면 연습 플레이어" : "아무 동작 없음";
   return (
     <Section title="눌렀을 때">
       <select
@@ -268,11 +275,16 @@ export function ActionSection({ block, set, pageCount, pickImageUrl }: { block: 
         }}
       >
         <option value="none">{builtIn}</option>
-        <option value="url">웹 주소 열기</option>
+        <option value="url">웹 주소·전화·메일 열기</option>
         <option value="page">책의 다른 쪽으로 이동</option>
         <option value="popup">팝업 띄우기 (글·사진·동영상)</option>
       </select>
-      {a?.type === "url" && <input className={small} placeholder="https://" value={a.href} onChange={(e) => setAction({ type: "url", href: e.target.value.trim() }, `act:${block.id}`)} />}
+      {a?.type === "url" && (
+        <>
+          <input className={small} placeholder="https://" value={a.href} onChange={(e) => setAction({ type: "url", href: e.target.value.trim() }, `act:${block.id}`)} />
+          <p className="text-xs text-neutral-400">전화는 <code>tel:02-000-0000</code>, 메일은 <code>mailto:주소</code>로 적어요.</p>
+        </>
+      )}
       {a?.type === "page" && (
         <Row label="이동할 쪽">
           <input type="number" min={1} max={pageCount} className={`${small} w-24`} value={a.page} onChange={(e) => setAction({ type: "page", page: Math.max(1, Math.min(pageCount, Number(e.target.value) || 1)) }, `act:${block.id}`)} />
@@ -283,19 +295,38 @@ export function ActionSection({ block, set, pageCount, pickImageUrl }: { block: 
           <input className={small} placeholder="제목" value={a.title ?? ""} onChange={(e) => setAction({ ...a, title: e.target.value || undefined }, `act:${block.id}`)} />
           <textarea className={`${small} min-h-20`} placeholder="내용" value={a.text ?? ""} onChange={(e) => setAction({ ...a, text: e.target.value || undefined }, `act:${block.id}`)} />
           <input className={small} placeholder="동영상 주소 (YouTube·Vimeo, 선택)" value={a.video ?? ""} onChange={(e) => setAction({ ...a, video: e.target.value.trim() || undefined }, `act:${block.id}`)} />
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className="btn flex-1"
-              onClick={async () => {
-                const url = await pickImageUrl();
-                if (url) setAction({ ...a, image: url });
-              }}
-            >
-              {a.image ? "사진 바꾸기" : "사진 넣기"}
-            </button>
-            {a.image && <button type="button" className="btn-danger" onClick={() => setAction({ ...a, image: undefined })}>빼기</button>}
-          </div>
+          {(() => {
+            // 사진 여러 장 (예전 책의 image 한 장도 함께 다룬다)
+            const imgs = a.images?.length ? a.images : a.image ? [a.image] : [];
+            const setImgs = (list: string[]) => setAction({ ...a, image: list[0], images: list.length > 1 ? list : undefined });
+            return (
+              <>
+                {imgs.length > 0 && (
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {imgs.map((u, i) => (
+                      <div key={`${u}${i}`} className="group relative aspect-square overflow-hidden rounded-lg bg-white ring-1 ring-black/10">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={u} alt="" className="size-full object-cover" />
+                        <button type="button" aria-label="빼기" className="absolute top-0.5 right-0.5 hidden size-5 place-items-center rounded-full bg-black/60 text-[10px] text-white group-hover:grid" onClick={() => setImgs(imgs.filter((_, j) => j !== i))}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={imgs.length >= 30}
+                  onClick={async () => {
+                    const url = await pickImageUrl();
+                    if (url) setImgs([...imgs, url]);
+                  }}
+                >
+                  {imgs.length ? "사진 더 넣기" : "사진 넣기"}
+                </button>
+                {imgs.length > 0 && <Toggle label="독자가 그림 저장 가능" hint="활동지·악보처럼 내려받게 할 때" checked={!!a.allowSave} onChange={(x) => setAction({ ...a, allowSave: x || undefined })} />}
+              </>
+            );
+          })()}
         </div>
       )}
     </Section>
@@ -412,7 +443,7 @@ export function LockHide({ block, set }: { block: Block; set: (fn: (b: Block) =>
 
 const LAYER_LABEL: Record<Block["type"], string> = {
   heading: "제목", paragraph: "본문", list: "목록", quote: "인용", image: "이미지", shape: "도형", audio: "오디오", video: "동영상",
-  link: "링크", toc: "목차", slideshow: "슬라이드쇼", product: "상품", button: "버튼", hotspot: "핫스팟", embed: "웹 삽입", form: "연락처 받기",
+  link: "링크", toc: "목차", slideshow: "슬라이드쇼", product: "상품", button: "버튼", hotspot: "핫스팟", embed: "웹 삽입", form: "연락처 받기", player: "연습 플레이어", icon: "활동 아이콘",
 };
 
 function layerName(b: Block) {

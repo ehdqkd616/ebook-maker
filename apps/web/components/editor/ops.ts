@@ -13,7 +13,7 @@ export function updateBlock(book: Book, pageId: string, blockId: string, fn: (b:
 
 export type NewBlockKind =
   | "heading" | "paragraph" | "list" | "quote" | "image" | "rect" | "ellipse" | "line" | "link"
-  | "video" | "audio" | "slideshow" | "product" | "button" | "hotspot" | "embed" | "form";
+  | "video" | "audio" | "slideshow" | "product" | "button" | "hotspot" | "embed" | "form" | "icon" | "player";
 
 export const NEW_BLOCK_LABELS: Record<NewBlockKind, string> = {
   heading: "제목",
@@ -33,6 +33,8 @@ export const NEW_BLOCK_LABELS: Record<NewBlockKind, string> = {
   hotspot: "핫스팟(클릭 영역)",
   embed: "웹 삽입",
   form: "연락처 받기",
+  icon: "활동 아이콘",
+  player: "연습 플레이어",
 };
 
 /** 페이지 가운데에 새 블록을 만든다 */
@@ -78,6 +80,10 @@ export function makeBlock(kind: NewBlockKind, book: Book): Block {
       return { ...box(48, 48), type: "product", data: { name: "상품 이름", price: "₩10,000", description: "상품 설명을 적어 주세요.", buttonText: "구매하기" } };
     case "button":
       return { ...box(W * 0.3, 52), type: "button", data: { text: "자세히 보기", variant: "solid" }, action: { type: "url", href: "https://" } };
+    case "icon":
+      return { ...box(40, 40), type: "icon", data: { icon: "activity" }, action: { type: "popup", title: "활동", text: "눌렀을 때 보여 줄 내용" } };
+    case "player":
+      return { ...box(44, 44), type: "player", data: { title: "노래 연습", tracks: [{ label: "노래 듣기", src: "" }, { label: "반주 듣기", src: "" }], verses: [], icon: "music" } };
     case "form":
       return {
         ...box(W * 0.36, 56),

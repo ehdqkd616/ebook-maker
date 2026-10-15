@@ -73,7 +73,9 @@ export const BlockAction = z.discriminatedUnion("type", [
     title: z.string().max(200).optional(),
     text: z.string().max(5000).optional(),
     image: z.string().max(2000).optional(),
+    images: z.array(z.string().max(2000)).max(30).optional(), // 여러 장이면 넘겨 보기
     video: z.string().max(2000).optional(),
+    allowSave: z.boolean().optional(), // 그림 저장 버튼 (활동지 등)
   }),
 ]);
 export type BlockAction = z.infer<typeof BlockAction>;
@@ -104,6 +106,12 @@ const blockBase = {
 export const LEAD_FIELDS = ["name", "email", "phone", "message"] as const;
 export type LeadField = (typeof LEAD_FIELDS)[number];
 export const LEAD_FIELD_LABEL: Record<LeadField, string> = { name: "이름", email: "이메일", phone: "전화번호", message: "남길 말" };
+
+// 연습 플레이어: 트랙(노래·반주·성부…)을 바꿔 듣고, 절·구간 버튼으로 원하는 곳부터 재생한다 (음악 교과서 악보 영상)
+export const PlayerSection = z.object({ label: z.string().max(40).optional(), time: z.number().min(0) });
+export const PlayerVerse = z.object({ label: z.string().max(40).optional(), sections: z.array(PlayerSection).max(60) });
+export const ICONS = ["music", "play", "video", "headphones", "activity", "book", "pencil", "link", "info", "question", "check", "star", "image", "download", "mic", "file"] as const;
+export type IconName = (typeof ICONS)[number];
 
 export const Block = z.discriminatedUnion("type", [
   z.object({ ...blockBase, type: z.literal("heading"), data: z.object({ text: z.string(), level: z.number().int().min(1).max(3) }) }),
@@ -148,6 +156,22 @@ export const Block = z.discriminatedUnion("type", [
   // 외부 웹 콘텐츠(iframe). https 주소만
   z.object({ ...blockBase, type: z.literal("embed"), data: z.object({ url: z.string().max(2000) }) }),
   z.object({ ...blockBase, type: z.literal("link"), data: z.object({ text: z.string(), href: z.string() }) }),
+  z.object({
+    ...blockBase,
+    type: z.literal("player"),
+    data: z.object({
+      title: z.string().max(120).optional(),
+      tracks: z.array(z.object({ label: z.string().max(30), src: z.string().max(2000) })).min(1).max(20),
+      verses: z.array(PlayerVerse).max(20).default([]),
+      icon: z.enum(ICONS).default("music"),
+    }),
+  }),
+  // 활동 아이콘: 쪽 위 작은 동그란 아이콘 — 눌렀을 때 동작(팝업·링크·쪽 이동)을 붙여 쓴다
+  z.object({
+    ...blockBase,
+    type: z.literal("icon"),
+    data: z.object({ icon: z.enum(ICONS), color: z.string().max(40).optional(), label: z.string().max(40).optional() }),
+  }),
   // 연락처 받기: 누르면 이름·이메일 등을 입력하는 창이 뜨고, 보낸 내용은 책 주인의 통계 화면에 모인다
   z.object({
     ...blockBase,

@@ -3,6 +3,8 @@
 import Link from "next/link";
 import {
   BookDown,
+  CircleDot,
+  ListMusic,
   Mail,
   AlertTriangle,
   Code2,
@@ -95,6 +97,8 @@ const INTERACTIVE_BUTTONS: { kind: NewBlockKind; icon: typeof Type }[] = [
   { kind: "product", icon: Tag },
   { kind: "embed", icon: Code2 },
   { kind: "form", icon: Mail },
+  { kind: "icon", icon: CircleDot },
+  { kind: "player", icon: ListMusic },
 ];
 
 const ZOOMS = ["fit", 0.5, 0.75, 1, 1.25, 1.5] as const;
@@ -198,8 +202,8 @@ export function BookEditor({
   }
 
   /** 이미지·오디오를 골라 올리고 주소만 돌려준다 (상품 사진, 팝업 그림, 뷰어 로고·배경음 등) */
-  async function pickUrl(kind: "image" | "audio"): Promise<string | null> {
-    const file = kind === "image" ? await pickImageFile() : await pickFile("audio/*");
+  async function pickUrl(kind: "image" | "audio" | "media"): Promise<string | null> {
+    const file = kind === "image" ? await pickImageFile() : await pickFile(kind === "audio" ? "audio/*" : "audio/*,video/mp4,video/webm");
     if (!file) return null;
     try {
       flash(kind === "image" ? "이미지를 올리는 중…" : "오디오를 올리는 중…");
@@ -456,6 +460,7 @@ export function BookEditor({
           onAddSlides={(id) => void addSlides(id)}
           pickImageUrl={() => pickUrl("image")}
           pickAudioUrl={() => pickUrl("audio")}
+          pickMediaUrl={() => pickUrl("media")}
         />
       </div>
 

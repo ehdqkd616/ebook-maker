@@ -1,6 +1,8 @@
 import type { CSSProperties } from "react";
 import { getLayout, toPx, type Decoration } from "@ebook/layouts";
 import type { Block, BookSize, Page, Theme } from "@ebook/schema";
+import { Icon } from "./icons";
+export { Icon, ICON_LABEL } from "./icons";
 
 // SPEC 9 — Page JSON → HTML. 에디터·뷰어·PDF가 모두 이 컴포넌트를 쓴다.
 // 좌표는 항상 책 원본 px 기준이고, 화면 크기 맞춤은 바깥에서 scale로 처리한다.
@@ -109,7 +111,7 @@ function BlockView({ block, isStatic }: { block: Block; isStatic: boolean }) {
   // 뷰어가 눌림을 처리할 수 있게 표시해 둔다 (page-flip은 a·button에 대한 클릭만 넘겨준다)
   const act = { "data-eb-block": block.id } as Record<string, string>;
   const content = renderContent(block, className, style, isStatic);
-  if (!block.action || ["button", "form", "hotspot", "product", "video", "audio", "slideshow", "embed", "link"].includes(block.type)) return content;
+  if (!block.action || ["button", "form", "icon", "player", "hotspot", "product", "video", "audio", "slideshow", "embed", "link"].includes(block.type)) return content;
   // 일반 블록에 동작이 붙으면 같은 자리에 투명한 버튼을 덮는다
   return (
     <>
@@ -249,6 +251,19 @@ function renderContent(block: Block, className: string, style: CSSProperties, is
       return (
         <Btn isStatic={isStatic} className={`${className} eb-interactive eb-button-${block.data.variant}`} style={style} {...act}>
           {block.data.text}
+        </Btn>
+      );
+    case "icon":
+      return (
+        <Btn isStatic={isStatic} className={`${className} eb-interactive`} style={{ ...style, ["--eb-icon-bg" as string]: block.data.color || "var(--eb-primary)" }} aria-label={block.data.label || actionLabel(block) || "자세히 보기"} {...act}>
+          <Icon name={block.data.icon} className="eb-icon-svg" />
+          {block.data.label && <span className="eb-icon-label">{block.data.label}</span>}
+        </Btn>
+      );
+    case "player":
+      return (
+        <Btn isStatic={isStatic} className={`${className} eb-interactive`} style={style} aria-label={block.data.title || "연습 플레이어 열기"} {...act}>
+          <Icon name={block.data.icon} className="eb-icon-svg" />
         </Btn>
       );
     case "form":

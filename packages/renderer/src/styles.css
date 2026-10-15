@@ -288,3 +288,15 @@ h3.eb-heading { color: var(--eb-primary); }
   line-height: 0.82;
   color: var(--eb-primary);
 }
+
+/* 활동 아이콘 · 연습 플레이어 버튼 — 동그란 배지 */
+.eb-icon, .eb-player {
+  display: flex; align-items: center; justify-content: center; gap: 0.35em;
+  border-radius: 999px; color: #fff; background: var(--eb-icon-bg, var(--eb-primary));
+  box-shadow: 0 2px 6px rgba(0,0,0,.22); transition: transform .15s, filter .15s;
+  container-type: size;
+}
+.eb-player { background: linear-gradient(135deg, var(--eb-primary), color-mix(in srgb, var(--eb-primary) 60%, #ff7ab6)); }
+.eb-icon:hover, .eb-player:hover { transform: scale(1.08); filter: brightness(1.08); }
+.eb-icon-svg { width: min(60cqh, 60cqw); height: min(60cqh, 60cqw); flex: none; }
+.eb-icon-label { font-size: max(11px, 38cqh); font-weight: 700; white-space: nowrap; padding-right: .2em; }

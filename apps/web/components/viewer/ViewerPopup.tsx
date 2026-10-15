@@ -1,17 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, ExternalLink, Loader2, X } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Download, ExternalLink, Loader2, X } from "lucide-react";
 import { videoEmbedUrl } from "@ebook/renderer";
 import { LEAD_FIELD_LABEL, type Block, type LeadField } from "@ebook/schema";
+import { PracticePlayer } from "./PracticePlayer";
 
 type ProductData = Extract<Block, { type: "product" }>["data"];
 type FormData_ = Extract<Block, { type: "form" }>["data"];
 export type PopupContent =
   | { kind: "video"; src: string }
   | { kind: "product"; data: ProductData }
-  | { kind: "info"; title?: string; text?: string; image?: string; video?: string }
-  | { kind: "form"; data: FormData_; blockId: string; page: number };
+  | { kind: "info"; title?: string; text?: string; image?: string; images?: string[]; video?: string; allowSave?: boolean }
+  | { kind: "form"; data: FormData_; blockId: string; page: number }
+  | { kind: "player"; data: Extract<Block, { type: "player" }>["data"] };
 
 const safeUrl = (u?: string) => (u && /^(https?:|mailto:|\/)/i.test(u.trim()) ? u.trim() : undefined);
 
@@ -19,7 +21,7 @@ export function ViewerPopup({ content, onClose, slug }: { content: PopupContent;
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/65 p-4 text-ink backdrop-blur-sm" onClick={onClose}>
       <div
-        className={`relative max-h-[90dvh] w-full overflow-auto rounded-2xl bg-white shadow-2xl ${content.kind === "video" ? "max-w-4xl bg-black" : "max-w-lg"}`}
+        className={`relative max-h-[90dvh] w-full overflow-auto rounded-2xl bg-white shadow-2xl ${content.kind === "video" ? "max-w-4xl bg-black" : content.kind === "player" ? "max-w-4xl bg-[#15131d]" : content.kind === "info" && (content.images?.length ?? 0) > 1 ? "max-w-3xl" : "max-w-lg"}`}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal
@@ -47,12 +49,12 @@ export function ViewerPopup({ content, onClose, slug }: { content: PopupContent;
           </div>
         )}
         {content.kind === "form" && <LeadForm content={content} slug={slug} />}
+        {content.kind === "player" && <PracticePlayer data={content.data} />}
         {content.kind === "info" && (
           <div>
             {content.video && <Player src={content.video} />}
-            {!content.video && content.image && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={content.image} alt="" className="max-h-[60dvh] w-full bg-neutral-50 object-contain" />
+            {!content.video && (content.images?.length || content.image) && (
+              <Gallery images={content.images?.length ? content.images : [content.image!]} allowSave={!!content.allowSave} title={content.title} />
             )}
             {(content.title || content.text) && (
               <div className="flex flex-col gap-2 p-6">
@@ -145,5 +147,30 @@ function LeadForm({ content, slug }: { content: Extract<PopupContent, { kind: "f
       </button>
       <p className="text-center text-[11px] text-neutral-400">보낸 내용은 이 책을 만든 사람만 볼 수 있어요.</p>
     </form>
+  );
+}
+
+/** 팝업 그림 — 여러 장이면 넘겨 보고, 허용했으면 저장 버튼 */
+function Gallery({ images, allowSave, title }: { images: string[]; allowSave: boolean; title?: string }) {
+  const [i, setI] = useState(0);
+  const src = images[Math.min(i, images.length - 1)];
+  const name = `${(title || "그림").replace(/[\\/:*?"<>|]+/g, " ").trim() || "그림"}${images.length > 1 ? `-${i + 1}` : ""}`;
+  return (
+    <div className="relative bg-neutral-50">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt={title ?? ""} className="max-h-[70dvh] w-full object-contain" />
+      {images.length > 1 && (
+        <>
+          <button type="button" aria-label="이전 그림" disabled={i === 0} onClick={() => setI(i - 1)} className="absolute top-1/2 left-3 grid size-10 -translate-y-1/2 place-items-center rounded-full bg-black/45 text-white hover:bg-black/65 disabled:opacity-0"><ChevronLeft className="size-5" /></button>
+          <button type="button" aria-label="다음 그림" disabled={i === images.length - 1} onClick={() => setI(i + 1)} className="absolute top-1/2 right-3 grid size-10 -translate-y-1/2 place-items-center rounded-full bg-black/45 text-white hover:bg-black/65 disabled:opacity-0"><ChevronRight className="size-5" /></button>
+          <span className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-2.5 py-0.5 text-xs text-white tabular-nums">{i + 1} / {images.length}</span>
+        </>
+      )}
+      {allowSave && (
+        <a href={src} download={name} className="absolute right-3 bottom-3 flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold text-ink shadow hover:bg-white">
+          <Download className="size-3.5" /> 그림 저장
+        </a>
+      )}
+    </div>
   );
 }

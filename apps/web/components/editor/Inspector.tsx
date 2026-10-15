@@ -23,7 +23,7 @@ export type InspectorTab = "block" | "page" | "book" | "viewer";
 const SIZE_LABEL: Record<SizePreset, string> = { A4: "A4 세로", LETTER: "레터", SQUARE: "정사각형", LANDSCAPE: "가로형" };
 const TYPE_LABEL: Record<Block["type"], string> = {
   heading: "제목", paragraph: "본문", list: "목록", quote: "인용", image: "이미지", shape: "도형", audio: "오디오", video: "동영상", link: "링크", toc: "목차",
-  slideshow: "슬라이드쇼", product: "상품 태그", button: "버튼", hotspot: "핫스팟", embed: "임베드", form: "연락처 받기",
+  slideshow: "슬라이드쇼", product: "상품 태그", button: "버튼", hotspot: "핫스팟", embed: "임베드", form: "연락처 받기", player: "연습 플레이어", icon: "활동 아이콘",
 };
 
 /** <input type="color">는 #rrggbb만 받는다 */
@@ -48,6 +48,7 @@ export function Inspector({
   onAddSlides,
   pickImageUrl,
   pickAudioUrl,
+  pickMediaUrl,
 }: {
   book: Book;
   page: Page;
@@ -61,6 +62,7 @@ export function Inspector({
   onAddSlides: (blockId: string) => void;
   pickImageUrl: () => Promise<string | null>;
   pickAudioUrl: () => Promise<string | null>;
+  pickMediaUrl: () => Promise<string | null>;
 }) {
   const active = tab === "block" && !block ? "page" : tab;
   return (
@@ -83,7 +85,7 @@ export function Inspector({
         {active === "block" && block && (
           <BlockPanel
             book={book} page={page} block={block} update={update} onSelect={onSelect} onPickImage={onPickImage}
-            onPickMedia={onPickMedia} onAddSlides={onAddSlides} pickImageUrl={pickImageUrl}
+            onPickMedia={onPickMedia} onAddSlides={onAddSlides} pickImageUrl={pickImageUrl} pickMediaUrl={pickMediaUrl}
           />
         )}
         {active === "page" && <PagePanel book={book} page={page} selectedId={block?.id ?? null} update={update} onSelect={onSelect} onPickImage={onPickImage} />}
@@ -128,10 +130,11 @@ function ColorField({ value, fallback, onChange, onReset }: { value?: string; fa
 // ── 블록 ─────────────────────────────────────────────
 
 function BlockPanel({
-  book, page, block, update, onSelect, onPickImage, onPickMedia, onAddSlides, pickImageUrl,
+  book, page, block, update, onSelect, onPickImage, onPickMedia, onAddSlides, pickImageUrl, pickMediaUrl,
 }: {
   book: Book; page: Page; block: Block; update: Update; onSelect: (id: string | null) => void; onPickImage: (t: { blockId: string }) => void;
   onPickMedia: (blockId: string, accept: string) => void; onAddSlides: (blockId: string) => void; pickImageUrl: () => Promise<string | null>;
+  pickMediaUrl: () => Promise<string | null>;
 }) {
   const set = (fn: (b: Block) => Block, key?: string) => update((bk) => updateBlock(bk, page.id, block.id, fn), key);
   const style = (k: string, v: string | number | undefined) => set((b) => setStyle(b, k, v), `style:${block.id}:${k}`);
@@ -276,7 +279,7 @@ function BlockPanel({
         </Section>
       )}
 
-      <MediaSections block={block} set={set} onPickMedia={onPickMedia} onAddSlides={onAddSlides} pickImageUrl={pickImageUrl} />
+      <MediaSections block={block} set={set} onPickMedia={onPickMedia} onAddSlides={onAddSlides} pickImageUrl={pickImageUrl} pickMediaUrl={pickMediaUrl} />
 
       <ActionSection block={block} set={set} pageCount={book.pages.length} pickImageUrl={pickImageUrl} />
       <AnimationSection block={block} set={set} />
