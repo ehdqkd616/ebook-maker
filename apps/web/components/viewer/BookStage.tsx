@@ -35,6 +35,7 @@ export function BookStage({
   showPageNumbers,
   onFlip,
   handleRef,
+  renderOverlay,
 }: {
   book: Book;
   scale: number;
@@ -43,6 +44,8 @@ export function BookStage({
   showPageNumbers: boolean;
   onFlip: (i: number) => void;
   handleRef: React.Ref<StageHandle>;
+  /** 쪽 위에 겹쳐 그릴 것(판서 등) — 쪽과 함께 넘어간다. 좌표는 책 크기(px) 기준 */
+  renderOverlay?: (pageIndex: number) => React.ReactNode;
 }) {
   const total = book.pages.length;
   const pw = Math.round(book.size.width * scale);
@@ -206,7 +209,7 @@ export function BookStage({
   // ── 끌어서 넘기기 ──
   const drag = useRef<{ id: number; x0: number; y0: number; forward: boolean; started: boolean; spine: number; lastX: number; lastT: number; vx: number } | null>(null);
   const isInteractive = (el: EventTarget | null) =>
-    el instanceof Element && !!el.closest("a, button, input, textarea, select, iframe, video, audio, [data-eb-block], [data-eb-goto], [data-eb-slide]");
+    el instanceof Element && !!el.closest("a, button, input, textarea, select, iframe, video, audio, [data-eb-block], [data-eb-goto], [data-eb-slide], [data-eb-draw]");
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0 || isInteractive(e.target)) return;
@@ -335,7 +338,7 @@ export function BookStage({
   // 보이는 쪽에 eb-page-active를 붙여 등장 애니메이션을 재생한다 (넘기는 중이면 넘어갈 펼침 기준)
   const page = (i: number | null) =>
     i === null ? null : (
-      <div data-page-index={i} className={active.has(i) ? "eb-page-active" : undefined}>
+      <div data-page-index={i} className={active.has(i) ? "eb-page-active relative" : "relative"}>
         <PageRenderer
           page={book.pages[i]}
           theme={book.theme}
@@ -343,6 +346,11 @@ export function BookStage({
           scale={scale}
           pageNumber={showPageNumbers && showsPageNumber(book.pages[i].layoutId) ? i + 1 : undefined}
         />
+        {renderOverlay && (
+          <div className="absolute top-0 left-0 z-[1]" style={{ width: book.size.width, height: book.size.height, transform: `scale(${scale})`, transformOrigin: "0 0" }}>
+            {renderOverlay(i)}
+          </div>
+        )}
       </div>
     );
 

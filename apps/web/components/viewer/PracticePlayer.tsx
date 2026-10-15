@@ -26,7 +26,8 @@ export function PracticePlayer({ data }: { data: PlayerData }) {
   const resume = useRef<{ t: number; play: boolean } | null>(null);
 
   const src = data.tracks[Math.min(track, data.tracks.length - 1)]?.src ?? "";
-  const verses = data.verses.filter((v) => v.sections.length);
+  // 트랙마다 따로 정한 구간이 있으면 그것을 쓴다 (노래와 반주의 시작 시각이 다를 수 있다)
+  const verses = (data.tracks[track]?.verses ?? data.verses).filter((v) => v.sections.length);
   const cur = verses[Math.min(verse, Math.max(0, verses.length - 1))];
   // 구간 끝 = 다음 구간 시작 (마지막이면 다음 절 첫 구간, 없으면 끝까지)
   const bounds = useMemo(() => {

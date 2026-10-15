@@ -15,6 +15,7 @@ import {
 } from "@ebook/schema";
 import { reorderBlock, setStyle, updateBlock } from "./ops";
 import { IconSection, PlayerSection } from "./PlayerEditor";
+import { BG_PRESETS } from "@/components/viewer/backgrounds";
 
 // 속성 패널 추가 부분 — 멀티미디어 블록 편집, 동작(클릭 시), 애니메이션, 모양(테두리·그림자),
 // 레이어 목록, 뷰어 설정
@@ -495,6 +496,9 @@ const BUTTON_LABEL: Record<keyof ViewerSettings["buttons"], string> = {
   autoplay: "자동 넘김",
   sound: "소리 켜고 끄기",
   reader: "텍스트로 읽기",
+  draw: "펜(판서)",
+  layout: "한 쪽/두 쪽 전환",
+  slider: "쪽 이동 막대",
 };
 
 export function ViewerPanel({ book, update, pickImageUrl, pickAudioUrl }: { book: Book; update: Update; pickImageUrl: () => Promise<string | null>; pickAudioUrl: () => Promise<string | null> }) {
@@ -520,7 +524,18 @@ export function ViewerPanel({ book, update, pickImageUrl, pickAudioUrl }: { book
       </Section>
 
       <Section title="배경·로고">
-        <Row label="배경색">
+        <div className="grid grid-cols-3 gap-1.5">
+          {Object.entries(BG_PRESETS).map(([k, p]) => {
+            const on = v.background === `preset:${k}` || (k === "night" && !v.background);
+            return (
+              <button key={k} type="button" onClick={() => set({ background: k === "night" ? undefined : `preset:${k}` })} className={`flex flex-col items-center gap-1 rounded-xl p-1.5 text-[11px] ${on ? "bg-brand-50 text-brand-700 ring-2 ring-brand-500" : "text-neutral-600 hover:bg-neutral-100"}`}>
+                <span className="h-9 w-full rounded-lg ring-1 ring-black/10" style={{ background: p.css }} />
+                {p.name}
+              </button>
+            );
+          })}
+        </div>
+        <Row label="직접 고른 색">
           <span className="flex items-center gap-1.5">
             <input type="color" className="h-8 w-10 cursor-pointer rounded-lg border border-black/10 bg-white p-0.5" value={toHex6(v.background, "#1b1826")} onChange={(e) => set({ background: e.target.value }, "viewer:bg")} />
             {v.background && <button type="button" className="text-xs text-neutral-500 underline" onClick={() => set({ background: undefined })}>기본값</button>}

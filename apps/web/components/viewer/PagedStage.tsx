@@ -16,6 +16,7 @@ export function SlideStage({
   showPageNumbers,
   onFlip,
   handleRef,
+  renderOverlay,
 }: {
   book: Book;
   scale: number;
@@ -24,6 +25,7 @@ export function SlideStage({
   showPageNumbers: boolean;
   onFlip: (i: number) => void;
   handleRef: React.Ref<StageHandle>;
+  renderOverlay?: (pageIndex: number) => React.ReactNode;
 }) {
   const total = book.pages.length;
   const rootRef = useRef<HTMLDivElement>(null);
@@ -47,7 +49,7 @@ export function SlideStage({
     <div
       ref={rootRef}
       className="relative h-full w-full overflow-hidden"
-      onTouchStart={(e) => (touch.current = e.touches[0].clientX)}
+      onTouchStart={(e) => (touch.current = (e.target as Element).closest?.("[data-eb-draw]") ? null : e.touches[0].clientX)}
       onTouchEnd={(e) => {
         if (touch.current === null) return;
         const dx = e.changedTouches[0].clientX - touch.current;
@@ -61,7 +63,7 @@ export function SlideStage({
           <div key={k} className="grid h-full w-full shrink-0 place-items-center">
             <div className="flex shadow-[0_20px_60px_-20px_rgba(0,0,0,.6)]">
               {g.map((i) => (
-                <div key={i} data-page-index={i}>
+                <div key={i} data-page-index={i} className="relative">
                   <PageRenderer
                     page={book.pages[i]}
                     theme={book.theme}
@@ -69,6 +71,7 @@ export function SlideStage({
                     scale={scale}
                     pageNumber={showPageNumbers && showsPageNumber(book.pages[i].layoutId) ? i + 1 : undefined}
                   />
+                  <Overlay book={book} scale={scale} index={i} render={renderOverlay} />
                 </div>
               ))}
             </div>
@@ -86,6 +89,7 @@ export function ScrollStage({
   showPageNumbers,
   onFlip,
   handleRef,
+  renderOverlay,
 }: {
   book: Book;
   scale: number;
@@ -93,6 +97,7 @@ export function ScrollStage({
   showPageNumbers: boolean;
   onFlip: (i: number) => void;
   handleRef: React.Ref<StageHandle>;
+  renderOverlay?: (pageIndex: number) => React.ReactNode;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const programmatic = useRef(false);
@@ -131,11 +136,22 @@ export function ScrollStage({
     <div ref={rootRef} className="h-full w-full overflow-y-auto">
       <div className="flex flex-col items-center gap-6 py-6">
         {book.pages.map((p, i) => (
-          <div key={p.id} data-page-index={i} className="shadow-[0_20px_60px_-20px_rgba(0,0,0,.6)]">
+          <div key={p.id} data-page-index={i} className="relative shadow-[0_20px_60px_-20px_rgba(0,0,0,.6)]">
             <PageRenderer page={p} theme={book.theme} size={book.size} scale={scale} pageNumber={showPageNumbers && showsPageNumber(p.layoutId) ? i + 1 : undefined} />
+            <Overlay book={book} scale={scale} index={i} render={renderOverlay} />
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** 쪽 위 판서 층 — 책 크기(px) 좌표로 그리고 쪽 배율만큼 줄인다 */
+function Overlay({ book, scale, index, render }: { book: Book; scale: number; index: number; render?: (i: number) => React.ReactNode }) {
+  if (!render) return null;
+  return (
+    <div className="absolute top-0 left-0 z-[1]" style={{ width: book.size.width, height: book.size.height, transform: `scale(${scale})`, transformOrigin: "0 0" }}>
+      {render(index)}
     </div>
   );
 }

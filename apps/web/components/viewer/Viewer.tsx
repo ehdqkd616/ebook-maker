@@ -12,6 +12,9 @@ import {
   Download,
   LayoutGrid,
   BookText,
+  Columns2,
+  PenLine,
+  RectangleVertical,
   Maximize,
   Minimize,
   Pause,
@@ -27,6 +30,9 @@ import { bookToc } from "@ebook/layouts";
 import { DEFAULT_VIEWER, ViewerSettings, type Block, type Book } from "@ebook/schema";
 import { BookStage, PERSPECTIVE_RATIO, type StageHandle } from "./BookStage";
 import { ReaderMode } from "./ReaderMode";
+import { DEFAULT_TOOL, InkLayer, InkPalette, useInk, type InkTool } from "./Ink";
+import { PageScrubber } from "./PageScrubber";
+import { BG_PRESETS } from "./backgrounds";
 import { ScrollStage, SlideStage } from "./PagedStage";
 import { ShareDialog } from "./ShareDialog";
 import { playFlipSound } from "./sound";
@@ -68,6 +74,21 @@ export function Viewer({ book, slug, backHref, embed = false, initialPage }: Vie
   const [popup, setPopup] = useState<PopupContent | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [zoom, setZoom] = useState(1);
+  // 한 쪽/두 쪽 보기 — auto는 화면 비율로 고른다. 책마다 기억
+  const layoutKey = `eb-layout:${slug ?? book.id}`;
+  const [layout, setLayout] = useState<"auto" | "single" | "double">("auto");
+  useEffect(() => {
+    try {
+      const v0 = localStorage.getItem(layoutKey);
+      if (v0 === "single" || v0 === "double") setLayout(v0);
+    } catch {
+      /* 무시 */
+    }
+  }, [layoutKey]);
+  // 판서
+  const { ink, add: addInk, remove: removeInk, undo: undoInk, clearPages } = useInk(`eb-ink:${slug ?? book.id}`);
+  const [inkTool, setInkTool] = useState<InkTool>(DEFAULT_TOOL);
+  const [drawing, setDrawing] = useState(false);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [playing, setPlaying] = useState(false);
   const [soundOn, setSoundOn] = useState(settings.flipSound);
@@ -136,7 +157,7 @@ export function Viewer({ book, slug, backHref, embed = false, initialPage }: Vie
       const cw = box.clientWidth - PADDING * 2;
       // hard 넘김은 3D로 회전하면서 잠깐 커지므로(최대 약 1/PERSPECTIVE_RATIO) 위아래 여유를 남긴다
       const ch = (box.clientHeight - PADDING * 2) / (settings.mode === "flip" ? PERSPECTIVE_RATIO / (PERSPECTIVE_RATIO - 1) : 1);
-      const wide = cw > ch * 1.15 && settings.mode !== "scroll";
+      const wide = settings.mode !== "scroll" && (layout === "double" ? true : layout === "single" ? false : cw > ch * 1.15);
       const s =
         settings.mode === "scroll"
           ? Math.min(cw / book.size.width, 1.2)
@@ -154,7 +175,7 @@ export function Viewer({ book, slug, backHref, embed = false, initialPage }: Vie
       clearTimeout(timer);
       ro.disconnect();
     };
-  }, [book.size, settings.mode]);
+  }, [book.size, settings.mode, layout]);
 
   // ── 쪽이 바뀔 때: 소리·통계·애니메이션 ──
   const lastPage = useRef(current);
@@ -353,12 +374,30 @@ export function Viewer({ book, slug, backHref, embed = false, initialPage }: Vie
   useEffect(() => () => audioRef.current?.el.pause(), []);
 
   const v = settings;
+  const preset = v.background?.startsWith("preset:") ? BG_PRESETS[v.background.slice(7)] : undefined;
   const bg = v.backgroundImage
     ? { backgroundImage: `url(${JSON.stringify(v.backgroundImage)})`, backgroundSize: "cover", backgroundPosition: "center" }
-    : v.background
-      ? { background: v.background }
-      : undefined;
+    : preset
+      ? { background: preset.css }
+      : v.background
+        ? { background: v.background }
+        : undefined;
+  const lightBg = !!preset?.light && !v.backgroundImage;
   const marked = bookmarks.includes(current);
+  const hasInk = Object.values(ink).some((l) => l.length);
+  const inkOverlay = drawing || hasInk
+    ? (i: number) => (
+        <InkLayer
+          width={book.size.width}
+          height={book.size.height}
+          strokes={ink[i] ?? []}
+          tool={drawing ? inkTool : null}
+          onAdd={(st) => addInk(i, st)}
+          onRemove={(k) => removeInk(i, k)}
+        />
+      )
+    : undefined;
+  const visiblePages = [current, ...(spread && settings.mode !== "scroll" && current > 0 && current < total - 1 ? [current + 1] : [])];
   const pageLabel = spread && settings.mode !== "scroll" && current > 0 && current < total - 1 ? `${current + 1}-${current + 2}` : `${current + 1}`;
 
   return (
@@ -382,8 +421,8 @@ export function Viewer({ book, slug, backHref, embed = false, initialPage }: Vie
             </a>
           )}
           <span className="flex min-w-0 flex-col leading-tight [text-shadow:0_1px_8px_rgba(0,0,0,.5)]">
-            <span className="truncate text-sm font-semibold text-white/85">{book.title}</span>
-            {book.author && <span className="truncate text-[11px] text-white/45">{book.author}</span>}
+            <span className={`truncate text-sm font-semibold ${lightBg ? "text-ink/80 [text-shadow:none]" : "text-white/85"}`}>{book.title}</span>
+            {book.author && <span className={`truncate text-[11px] ${lightBg ? "text-ink/50" : "text-white/45"}`}>{book.author}</span>}
           </span>
         </div>
       )}
@@ -415,11 +454,11 @@ export function Viewer({ book, slug, backHref, embed = false, initialPage }: Vie
           >
             {scale !== null &&
               (settings.mode === "flip" ? (
-                <BookStage book={book} scale={scale} spread={spread} startPage={current} showPageNumbers={v.showPageNumbers} onFlip={onFlip} handleRef={stageRef} />
+                <BookStage book={book} scale={scale} spread={spread} startPage={current} showPageNumbers={v.showPageNumbers} onFlip={onFlip} handleRef={stageRef} renderOverlay={inkOverlay} />
               ) : settings.mode === "slide" ? (
-                <SlideStage book={book} scale={scale} current={current} spread={spread} showPageNumbers={v.showPageNumbers} onFlip={onFlip} handleRef={stageRef} />
+                <SlideStage book={book} scale={scale} current={current} spread={spread} showPageNumbers={v.showPageNumbers} onFlip={onFlip} handleRef={stageRef} renderOverlay={inkOverlay} />
               ) : (
-                <ScrollStage book={book} scale={scale} current={current} showPageNumbers={v.showPageNumbers} onFlip={onFlip} handleRef={stageRef} />
+                <ScrollStage book={book} scale={scale} current={current} showPageNumbers={v.showPageNumbers} onFlip={onFlip} handleRef={stageRef} renderOverlay={inkOverlay} />
               ))}
           </div>
           {/* 확대했을 때는 끌어서 옮긴다 (넘김은 잠시 멈춤) */}
@@ -454,6 +493,14 @@ export function Viewer({ book, slug, backHref, embed = false, initialPage }: Vie
       </div>
 
       {/* 아래 도구 막대 */}
+      {drawing && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-[76px] z-30 flex justify-center px-2">
+          <InkPalette tool={inkTool} setTool={setInkTool} onUndo={undoInk} onClear={() => confirm("보이는 쪽의 판서를 모두 지울까요?") && clearPages(visiblePages)} onClose={() => setDrawing(false)} />
+        </div>
+      )}
+      {btn.slider && settings.mode !== "scroll" && total > 2 && !drawing && (
+        <PageScrubber book={book} current={current} spread={spread} onGo={go} />
+      )}
       <div className="relative z-20 flex shrink-0 justify-center px-2 pb-3">
         <div className="relative flex max-w-full items-center gap-0.5 overflow-x-auto rounded-2xl border border-white/10 bg-black/35 px-1.5 py-1 text-sm text-white/85 shadow-2xl backdrop-blur-xl">
           {/* 읽은 만큼 */}
@@ -526,6 +573,28 @@ export function Viewer({ book, slug, backHref, embed = false, initialPage }: Vie
             <a href={`/b/${slug}/print`} target="_blank" rel="noreferrer" aria-label="PDF로 저장·인쇄" title="PDF로 저장·인쇄" className="grid size-9 place-items-center rounded-xl transition hover:bg-white/10">
               <Download className="size-[18px]" />
             </a>
+          )}
+          {btn.layout && settings.mode !== "scroll" && (
+            <TB
+              label={spread ? "한 쪽씩 보기" : "두 쪽씩 보기"}
+              className="hidden sm:grid"
+              onClick={() => {
+                const next = spread ? "single" : "double";
+                setLayout(next);
+                try {
+                  localStorage.setItem(layoutKey, next);
+                } catch {
+                  /* 무시 */
+                }
+              }}
+            >
+              {spread ? <RectangleVertical className="size-[18px]" /> : <Columns2 className="size-[18px]" />}
+            </TB>
+          )}
+          {btn.draw && (
+            <TB label={drawing ? "판서 끝내기" : "펜으로 쓰기"} active={drawing} onClick={() => { setDrawing((d) => !d); setZoomLevel(1); }}>
+              <PenLine className="size-[18px]" />
+            </TB>
           )}
           {btn.fullscreen && (
             <TB label="전체 화면" onClick={toggleFullscreen}>{fullscreen ? <Minimize className="size-[18px]" /> : <Maximize className="size-[18px]" />}</TB>

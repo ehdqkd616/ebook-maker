@@ -28,10 +28,11 @@ import {
   ShoppingBag,
   Trash2,
   Upload,
-  Wand2, LayoutTemplate } from "lucide-react";
+  Wand2, LayoutTemplate, FolderInput } from "lucide-react";
 import { BookCover } from "@/components/BookCover";
 import { PageThumb } from "@/components/PageThumb";
 import { TemplateGallery } from "./TemplateGallery";
+import { FlipImport } from "./FlipImport";
 import { PdfToFlipbook } from "./PdfToFlipbook";
 import { api, ApiError } from "@/lib/api";
 import { docxToMarkdown } from "@/lib/import/docx";
@@ -76,7 +77,7 @@ const draft = (c: Partial<ComposeChapter> = {}): ChapterDraft => ({ key: ++keySe
 
 export function NewBookWizard({ start }: { start?: string }) {
   const router = useRouter();
-  const [mode, setMode] = useState<"pdf" | "design" | "template">(start === "pdf" ? "pdf" : start === "template" ? "template" : "design");
+  const [mode, setMode] = useState<"pdf" | "design" | "template" | "flip">(start === "pdf" ? "pdf" : start === "template" ? "template" : start === "flip" ? "flip" : "design");
   const [step, setStep] = useState(0);
   const [bookType, setBookType] = useState<BookType>("ebook");
   const [sizePreset, setSizePreset] = useState<SizePreset>("A4");
@@ -230,10 +231,17 @@ export function NewBookWizard({ start }: { start?: string }) {
           <button type="button" aria-pressed={mode === "design"} onClick={() => setMode("design")} className="flex items-center gap-1.5">
             <Wand2 className="size-4" /> 새로 디자인
           </button>
+          <button type="button" aria-pressed={mode === "flip"} onClick={() => setMode("flip")} className="flex items-center gap-1.5">
+            <FolderInput className="size-4" /> FlipHTML5
+          </button>
         </div>
       </div>
 
-      {mode === "template" ? (
+      {mode === "flip" ? (
+        <div className="mt-8">
+          <FlipImport />
+        </div>
+      ) : mode === "template" ? (
         <div className="mt-8">
           <TemplateGallery />
         </div>

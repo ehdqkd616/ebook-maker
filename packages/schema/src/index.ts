@@ -161,7 +161,8 @@ export const Block = z.discriminatedUnion("type", [
     type: z.literal("player"),
     data: z.object({
       title: z.string().max(120).optional(),
-      tracks: z.array(z.object({ label: z.string().max(30), src: z.string().max(2000) })).min(1).max(20),
+      // 트랙마다 구간 시각이 다르면 verses를 따로 둔다 (없으면 공통 verses)
+      tracks: z.array(z.object({ label: z.string().max(30), src: z.string().max(2000), verses: z.array(PlayerVerse).max(20).optional() })).min(1).max(20),
       verses: z.array(PlayerVerse).max(20).default([]),
       icon: z.enum(ICONS).default("music"),
     }),
@@ -231,6 +232,9 @@ export const ViewerSettings = z.object({
       autoplay: z.boolean().default(true),
       sound: z.boolean().default(true),
       reader: z.boolean().default(true), // 텍스트로 읽기
+      draw: z.boolean().default(true), // 판서(펜·형광펜)
+      layout: z.boolean().default(true), // 한 쪽/두 쪽 보기 전환
+      slider: z.boolean().default(true), // 쪽 이동 막대
     })
     .prefault({}),
 });
