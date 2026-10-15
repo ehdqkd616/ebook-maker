@@ -5,24 +5,42 @@ import { showsPageNumber } from "@ebook/layouts";
 import { PageRenderer } from "@ebook/renderer";
 import type { Book } from "@ebook/schema";
 
-// 직접 만든 책장 넘김. 한 장(leaf)이 책등을 축으로 3D 회전하고, 회전 각도에 따라
-//  · 앞면은 들릴수록 어두워지고 뒷면은 내려앉을수록 밝아지며 (빛),
-//  · 아래 쪽에는 넘어가는 장의 그림자가 드리우고,
-//  · 가운데 접힘 그림자와 남은 쪽수만큼의 책 두께가 보인다.
-// 끌면 종이 가장자리가 손가락을 따라오고(각도 = acos(손가락 위치 / 쪽 너비)), 놓으면 가까운 쪽으로 마저 넘어간다.
+// 직접 만든 책장 넘김 — 종이 모서리를 잡아 말아 넘기는 방식 (2D 접기).
+// 넘어가는 장은 비틀거나 기울이지 않는다. 모서리 C가 점 P로 끌려오면 접힌 선은 C·P의 수직이등분선이고,
+//  · 접힌 선 안쪽(책등 쪽)은 앞면 그대로,
+//  · 바깥쪽은 접힌 선을 기준으로 뒤집혀(반사) 뒷면이 보이고,
+//  · 그 아래로 다음 쪽이 드러나며 접힌 선을 따라 그림자·빛이 진다.
+// 끌면 모서리가 손가락을 따라오고, 놓으면 가까운 쪽으로/빠르게 튕기면 넘어간다.
 // 표지·뒤표지만 보일 때는 책을 가운데로 옮긴다.
 //
-// 넘김 모델: 앞 펼침 L과 뒤 펼침 U 사이를 넘길 때
+// 좌표: 오른쪽 쪽의 왼쪽 위(책등 위)가 원점, 너비 W·높이 H. 앞으로 넘기면 P가 (W, cy) → (-W, cy),
+// 뒤로 넘기면 반대. P.x로 진행 정도(0: 앞 펼침, 1: 뒤 펼침)를 구한다.
 //   왼쪽 고정 = L의 왼쪽, 오른쪽 아래 = U의 오른쪽, 넘어가는 장 앞면 = L의 오른쪽, 뒷면 = U의 왼쪽.
-//   각도 0이면 L을, -180이면 U를 보는 것과 같다. 앞으로 넘기면 0 → -180, 뒤로 넘기면 -180 → 0.
-
-// 원근 거리 = 쪽 너비 × 이 값. 넘기는 동안 책이 부푸는 정도(최대 약 1/(값-1))를 정한다.
-export const PERSPECTIVE_RATIO = 8;
 
 export type StageHandle = { go: (i: number) => void; next: () => void; prev: () => void; pageElements: () => HTMLElement[] };
 
 type Spread = { left: number | null; right: number | null };
-type Turn = { lo: number; hi: number; from: number; to: number; target: number; peek?: boolean }; // lo/hi: 펼침 번호, from/to: 각도
+type Turn = { lo: number; hi: number; target: number; peek?: boolean }; // lo/hi: 펼침 번호
+type Pt = { x: number; y: number };
+
+/** 볼록 다각형을 반평면 ((p - q)·n) * keep >= 0 으로 자른다 */
+function clipHalf(poly: Pt[], q: Pt, n: Pt, keep: 1 | -1): Pt[] {
+  const out: Pt[] = [];
+  const f = (p: Pt) => ((p.x - q.x) * n.x + (p.y - q.y) * n.y) * keep;
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i];
+    const b = poly[(i + 1) % poly.length];
+    const fa = f(a);
+    const fb = f(b);
+    if (fa >= 0) out.push(a);
+    if (fa >= 0 !== fb >= 0) {
+      const t = fa / (fa - fb);
+      out.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+    }
+  }
+  return out;
+}
+const toClip = (pts: Pt[]) => (pts.length < 3 ? "polygon(0 0, 0 0, 0 0)" : `polygon(${pts.map((p) => `${p.x.toFixed(1)}px ${p.y.toFixed(1)}px`).join(",")})`);
 
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 const easeOut = (t: number) => 1 - (1 - t) ** 3;
@@ -69,12 +87,15 @@ export function BookStage({
 
   const rootRef = useRef<HTMLDivElement>(null);
   const bookRef = useRef<HTMLDivElement>(null);
-  const leafRef = useRef<HTMLDivElement>(null);
-  const shadeFrontRef = useRef<HTMLDivElement>(null);
-  const shadeBackRef = useRef<HTMLDivElement>(null);
-  const castRightRef = useRef<HTMLDivElement>(null);
-  const castLeftRef = useRef<HTMLDivElement>(null);
-  const angleRef = useRef(0);
+  const frontRef = useRef<HTMLDivElement>(null); // 앞면 (접힌 선 안쪽만)
+  const underRef = useRef<HTMLDivElement>(null); // 드러난 다음 쪽 위의 그림자
+  const underShadeRef = useRef<HTMLDivElement>(null);
+  const backWrapRef = useRef<HTMLDivElement>(null); // 말린 뒷면 (그림자 필터)
+  const backClipRef = useRef<HTMLDivElement>(null);
+  const backPageRef = useRef<HTMLDivElement>(null);
+  const backShadeRef = useRef<HTMLDivElement>(null);
+  const posRef = useRef<Pt>({ x: 0, y: 0 }); // 끌려온 모서리 P
+  const cornerYRef = useRef(0); // 잡은 모서리: 0(위) 또는 H(아래)
   const animRef = useRef<number | null>(null);
   const turnRef = useRef<Turn | null>(null);
   turnRef.current = turn;
@@ -87,34 +108,85 @@ export function BookStage({
     [twoUp, pw],
   );
 
-  /** 각도(0 ~ -180)에 맞춰 장·빛·그림자를 그린다 — 매 프레임 DOM을 직접 고친다 */
+  const progressOf = (x: number) => Math.min(1, Math.max(0, (pw - x) / (2 * pw)));
+
+  /** 모서리 위치 P에 맞춰 앞면·뒷면·그림자를 그린다 — 매 프레임 DOM을 직접 고친다 */
   const paint = useCallback(
-    (angle: number) => {
-      angleRef.current = angle;
+    (raw: Pt) => {
+      const W = pw;
+      const H = ph;
+      const cy = cornerYRef.current;
+      // 종이는 늘어나지 않는다: 책등의 같은 높이 점에서 W, 반대 높이 점에서 대각선 길이 안쪽으로
+      let P = { ...raw };
+      const fit = (ax: number, ay: number, r: number) => {
+        const dx = P.x - ax;
+        const dy = P.y - ay;
+        const d = Math.hypot(dx, dy);
+        if (d > r) P = { x: ax + (dx / d) * r, y: ay + (dy / d) * r };
+      };
+      fit(0, cy, W);
+      fit(0, H - cy, Math.hypot(W, H));
+      posRef.current = P;
       const t = turnRef.current;
-      const p = Math.min(1, Math.max(0, -angle / 180)); // 0: 앞 펼침, 1: 뒤 펼침
-      const rad = (-angle * Math.PI) / 180;
-      const lift = Math.sin(rad); // 세워진 정도
-      if (leafRef.current) {
-        leafRef.current.style.transform = `rotateY(${angle}deg)`;
+      const p = progressOf(P.x);
+
+      const C = { x: W, y: cy };
+      const dx = C.x - P.x;
+      const dy = C.y - P.y;
+      const dist = Math.hypot(dx, dy);
+      const front = frontRef.current;
+      const under = underRef.current;
+      const backWrap = backWrapRef.current;
+      const backClip = backClipRef.current;
+      const backPage = backPageRef.current;
+      if (front && under && backWrap && backClip && backPage) {
+        if (dist < 0.5) {
+          front.style.clipPath = "none";
+          under.style.clipPath = toClip([]);
+          backClip.style.clipPath = toClip([]);
+        } else {
+          const n = { x: dx / dist, y: dy / dist }; // 접힌 선의 법선 (모서리 쪽)
+          const Q = { x: (C.x + P.x) / 2, y: (C.y + P.y) / 2 }; // 접힌 선 위의 점
+          const rect = [{ x: 0, y: 0 }, { x: W, y: 0 }, { x: W, y: H }, { x: 0, y: H }];
+          const stay = clipHalf(rect, Q, n, -1);
+          const lifted = clipHalf(rect, Q, n, 1);
+          const qn = Q.x * n.x + Q.y * n.y;
+          const reflect = (s: Pt) => {
+            const d = s.x * n.x + s.y * n.y - qn;
+            return { x: s.x - 2 * d * n.x, y: s.y - 2 * d * n.y };
+          };
+          front.style.clipPath = toClip(stay);
+          under.style.clipPath = toClip(lifted);
+          backClip.style.clipPath = toClip(lifted.map(reflect));
+          // 뒷면 쪽(u) → 화면: 좌우를 뒤집어(u.x → W - u.x) 접힌 선에 반사. 반사 두 번이라 글은 거울상이 아니다
+          const a11 = 1 - 2 * n.x * n.x;
+          const a12 = -2 * n.x * n.y;
+          const a22 = 1 - 2 * n.y * n.y;
+          backPage.style.transform = `matrix(${-a11}, ${-a12}, ${a12}, ${a22}, ${a11 * W + 2 * qn * n.x}, ${a12 * W + 2 * qn * n.y})`;
+
+          // 접힌 선을 따라가는 띠 모양 그림자·빛
+          const phi = Math.atan2(n.y, n.x);
+          const L = Math.hypot(W, H) * 2;
+          const lift = Math.min(1, dist / (W * 0.25)); // 막 들기 시작할 땐 옅게
+          const under0 = underShadeRef.current;
+          if (under0) {
+            const w = Math.min(W * 0.4, 10 + dist * 0.22);
+            under0.style.width = `${w}px`;
+            under0.style.height = `${L * 2}px`;
+            under0.style.transform = `translate(${Q.x}px, ${Q.y}px) rotate(${phi}rad) translate(0px, ${-L}px)`;
+            under0.style.opacity = String(lift * (1 - p * 0.5));
+          }
+          const back0 = backShadeRef.current;
+          if (back0) {
+            const w = Math.max(24, dist / 2);
+            back0.style.width = `${w}px`;
+            back0.style.height = `${L * 2}px`;
+            back0.style.transform = `translate(${Q.x}px, ${Q.y}px) rotate(${phi}rad) translate(${-w}px, ${-L}px)`;
+            back0.style.opacity = String(0.35 + 0.65 * lift * (1 - p * 0.7));
+          }
+        }
         // 한 쪽 보기에서는 넘어간 장이 책 밖(왼쪽)으로 나가므로 뒤로 갈수록 흐려지게
-        if (!twoUp) leafRef.current.style.opacity = String(p > 0.55 ? Math.max(0, 1 - (p - 0.55) / 0.45) : 1);
-      }
-      if (shadeFrontRef.current) shadeFrontRef.current.style.opacity = String(Math.min(1, p * 2.2) * 0.85);
-      if (shadeBackRef.current) shadeBackRef.current.style.opacity = String(Math.min(1, (1 - p) * 2.2) * 0.85);
-      // 아래 쪽 그림자: 장 가장자리가 화면에 비친 자리 바로 옆
-      const edge = pw * Math.cos(rad); // 책등 기준, 앞쪽(+)/뒤쪽(-)
-      if (castRightRef.current) {
-        const on = p < 0.5;
-        castRightRef.current.style.opacity = on ? String((1 - p * 2) * 0.9 + 0.1) : "0";
-        castRightRef.current.style.transform = `translateX(${Math.max(0, edge)}px)`;
-        castRightRef.current.style.width = `${Math.max(12, 90 * lift)}px`;
-      }
-      if (castLeftRef.current) {
-        const on = p > 0.5;
-        castLeftRef.current.style.opacity = on ? String(((p - 0.5) * 2) * 0.9 + 0.1) : "0";
-        castLeftRef.current.style.transform = `translateX(${Math.min(0, edge)}px)`;
-        castLeftRef.current.style.width = `${Math.max(12, 90 * lift)}px`;
+        if (!twoUp) backWrap.style.opacity = String(p > 0.55 ? Math.max(0, 1 - (p - 0.55) / 0.45) : 1);
       }
       // 표지 ↔ 첫 펼침처럼 한쪽이 비는 펼침 사이에서는 책을 조금씩 가운데로 옮긴다
       if (bookRef.current && t) {
@@ -124,19 +196,22 @@ export function BookStage({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pw, offsetOf, twoUp, total],
+    [pw, ph, offsetOf, twoUp, total],
   );
 
-  /** 지금 각도에서 to까지 움직이고, 끝나면 펼침을 확정한다 */
+  /** 지금 위치에서 to까지 모서리를 옮기고(넘어가는 동안 살짝 들어 올린다), 끝나면 펼침을 확정한다 */
   const animate = useCallback(
-    (to: number, done: () => void, curve = ease) => {
+    (to: Pt, done: () => void, curve = ease) => {
       if (animRef.current) cancelAnimationFrame(animRef.current);
-      const from = angleRef.current;
-      const dur = reduced ? 0 : Math.max(220, (Math.abs(to - from) / 180) * 820);
+      const from = { ...posRef.current };
+      const span = Math.abs(to.x - from.x) / (2 * pw);
+      const dur = reduced ? 0 : Math.max(220, span * 900);
+      const arc = ph * 0.025 * span * (cornerYRef.current === 0 ? 1 : -1);
       const start = performance.now();
       const step = (now: number) => {
         const k = dur ? Math.min(1, (now - start) / dur) : 1;
-        paint(from + (to - from) * curve(k));
+        const e = curve(k);
+        paint({ x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e + arc * Math.sin(Math.PI * e) });
         if (k < 1) animRef.current = requestAnimationFrame(step);
         else {
           animRef.current = null;
@@ -145,14 +220,14 @@ export function BookStage({
       };
       animRef.current = requestAnimationFrame(step);
     },
-    [paint, reduced],
+    [paint, reduced, pw, ph],
   );
 
   // 넘김이 막 시작되면(새 장이 그려진 뒤) 시작 각도를 칠하고 움직인다
-  const pendingRef = useRef<{ to: number; curve?: (t: number) => number } | null>(null);
+  const pendingRef = useRef<{ to: Pt; curve?: (t: number) => number } | null>(null);
   useLayoutEffect(() => {
     if (!turn) return;
-    paint(angleRef.current);
+    paint(posRef.current);
     const pend = pendingRef.current;
     if (pend) {
       pendingRef.current = null;
@@ -164,10 +239,9 @@ export function BookStage({
   const finish = useCallback(() => {
     const t = turnRef.current;
     if (!t) return;
-    const landed = angleRef.current <= -90 ? t.hi : t.lo;
+    const landed = progressOf(posRef.current.x) >= 0.5 ? t.hi : t.lo;
     setView(landed);
     setTurn(null);
-    angleRef.current = 0;
     if (bookRef.current) bookRef.current.style.transform = `translateX(${offsetOf(spreads[landed])}px)`;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [offsetOf, twoUp, total]);
@@ -176,8 +250,7 @@ export function BookStage({
   const turnTo = useCallback(
     (target: number) => {
       target = Math.max(0, Math.min(spreads.length - 1, target));
-      const cur = turnRef.current && !turnRef.current.peek ? (angleRef.current <= -90 ? turnRef.current.hi : turnRef.current.lo) : view;
-      if (turnRef.current?.peek) angleRef.current = 0;
+      const cur = turnRef.current && !turnRef.current.peek ? (progressOf(posRef.current.x) >= 0.5 ? turnRef.current.hi : turnRef.current.lo) : view;
       if (turnRef.current) {
         if (animRef.current) cancelAnimationFrame(animRef.current);
         animRef.current = null;
@@ -188,15 +261,16 @@ export function BookStage({
       const forward = target > cur;
       const lo = forward ? cur : target;
       const hi = forward ? target : cur;
-      angleRef.current = forward ? 0 : -180;
-      pendingRef.current = { to: forward ? -180 : 0 };
-      setTurn({ lo, hi, from: angleRef.current, to: forward ? -180 : 0, target });
+      cornerYRef.current = ph;
+      posRef.current = { x: forward ? pw : -pw, y: ph };
+      pendingRef.current = { to: { x: forward ? -pw : pw, y: ph } };
+      setTurn({ lo, hi, target });
       const page = firstOf(spreads[target]);
       pageRef.current = page;
       onFlipRef.current(page);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [view, twoUp, total],
+    [view, twoUp, total, pw, ph],
   );
 
   useImperativeHandle(handleRef, () => ({
@@ -207,7 +281,13 @@ export function BookStage({
   }));
 
   // ── 끌어서 넘기기 ──
-  const drag = useRef<{ id: number; x0: number; y0: number; forward: boolean; started: boolean; spine: number; lastX: number; lastT: number; vx: number } | null>(null);
+  const drag = useRef<{ id: number; x0: number; y0: number; forward: boolean; started: boolean; m0: Pt; c: Pt; lastX: number; lastT: number; vx: number } | null>(null);
+  /** 화면 좌표 → 오른쪽 쪽 기준 좌표 (확대 배율 반영) */
+  const local = (clientX: number, clientY: number): Pt => {
+    const rect = bookRef.current!.getBoundingClientRect();
+    const zoomed = rect.height / ph || 1;
+    return { x: (clientX - rect.left) / zoomed - (twoUp ? pw : 0), y: (clientY - rect.top) / zoomed };
+  };
   const isInteractive = (el: EventTarget | null) =>
     el instanceof Element && !!el.closest("a, button, input, textarea, select, iframe, video, audio, [data-eb-block], [data-eb-goto], [data-eb-slide], [data-eb-draw]");
 
@@ -217,7 +297,6 @@ export function BookStage({
     if (turnRef.current?.peek) {
       if (animRef.current) cancelAnimationFrame(animRef.current);
       animRef.current = null;
-      angleRef.current = 0;
       turnRef.current = null;
       setTurn(null);
     }
@@ -231,7 +310,10 @@ export function BookStage({
       drag.current = null;
       return;
     }
-    drag.current = { id: e.pointerId, x0: e.clientX, y0: e.clientY, forward, started: false, spine, lastX: e.clientX, lastT: e.timeStamp, vx: 0 };
+    const m0 = local(e.clientX, e.clientY);
+    // 위쪽 절반을 잡으면 위 모서리, 아니면 아래 모서리를 든다
+    const cy = m0.y < ph / 2 ? 0 : ph;
+    drag.current = { id: e.pointerId, x0: e.clientX, y0: e.clientY, forward, started: false, m0, c: { x: forward ? pw : -pw, y: cy }, lastX: e.clientX, lastT: e.timeStamp, vx: 0 };
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
@@ -246,17 +328,16 @@ export function BookStage({
       d.started = true;
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
       const lo = d.forward ? view : view - 1;
-      angleRef.current = d.forward ? 0 : -180;
-      setTurn({ lo, hi: lo + 1, from: angleRef.current, to: angleRef.current, target: d.forward ? view + 1 : view - 1 });
+      cornerYRef.current = d.c.y;
+      posRef.current = { ...d.c };
+      setTurn({ lo, hi: lo + 1, target: d.forward ? view + 1 : view - 1 });
     }
     d.vx = (e.clientX - d.lastX) / Math.max(1, e.timeStamp - d.lastT);
     d.lastX = e.clientX;
     d.lastT = e.timeStamp;
-    // 장 가장자리가 손가락 아래 오도록: cos(각도) = (손가락 - 책등) / 쪽 너비
-    const zoomed = bookRef.current!.getBoundingClientRect().height / ph || 1;
-    const rel = (e.clientX - d.spine) / (pw * zoomed);
-    const angle = (-Math.acos(Math.max(-1, Math.min(1, rel))) * 180) / Math.PI;
-    paint(angle);
+    // 잡은 모서리가 손가락을 따라온다 (위아래는 덜 움직여 장이 책 밖으로 크게 휘지 않게)
+    const m = local(e.clientX, e.clientY);
+    paint({ x: d.c.x + m.x - d.m0.x, y: d.c.y + (m.y - d.m0.y) * 0.45 });
   };
 
   const onPointerUp = (e: React.PointerEvent) => {
@@ -271,14 +352,14 @@ export function BookStage({
     const t = turnRef.current;
     if (!t) return;
     // 반 넘게 넘겼거나 빠르게 튕기면 마저 넘긴다
-    const toHi = d.vx < -0.4 ? true : d.vx > 0.4 ? false : angleRef.current <= -90;
+    const toHi = d.vx < -0.4 ? true : d.vx > 0.4 ? false : progressOf(posRef.current.x) >= 0.5;
     const landed = toHi ? t.hi : t.lo;
     if (landed !== view) {
       pageRef.current = firstOf(spreads[landed]);
       onFlipRef.current(pageRef.current);
     }
     setTurn({ ...t, target: landed });
-    animate(toHi ? -180 : 0, () => finish(), easeOut);
+    animate({ x: toHi ? -pw : pw, y: cornerYRef.current }, () => finish(), easeOut);
   };
 
   // 오른쪽 모서리에 마우스를 올리면 살짝 들린다
@@ -295,16 +376,18 @@ export function BookStage({
   /** 다음 장 모서리를 살짝 들었다 내린다 (처음 펼쳤을 때 넘길 수 있다는 힌트) */
   const peek = useCallback(() => {
     if (turnRef.current || view >= spreads.length - 1 || reduced) return;
-    angleRef.current = 0;
-    setTurn({ lo: view, hi: view + 1, from: 0, to: 0, target: view, peek: true });
+    cornerYRef.current = ph;
+    posRef.current = { x: pw, y: ph };
+    setTurn({ lo: view, hi: view + 1, target: view, peek: true });
     const done = () => {
       if (!turnRef.current?.peek) return; // 그사이 사용자가 넘기기 시작했다
       setTurn(null);
-      angleRef.current = 0;
     };
-    requestAnimationFrame(() => turnRef.current?.peek && animate(-16, () => turnRef.current?.peek && animate(0, done, easeOut), easeOut));
+    const corner = { x: pw, y: ph };
+    const lifted = { x: pw * 0.86, y: ph - pw * 0.1 };
+    requestAnimationFrame(() => turnRef.current?.peek && animate(lifted, () => turnRef.current?.peek && animate(corner, done, easeOut), easeOut));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, spreads.length, animate, reduced]);
+  }, [view, spreads.length, animate, reduced, pw, ph]);
 
   useEffect(() => {
     const id = setTimeout(peek, 1400);
@@ -384,7 +467,6 @@ export function BookStage({
         style={{
           width: bookW,
           height: ph,
-          perspective: pw * PERSPECTIVE_RATIO,
           transform: `translateX(${turn ? offsetOf(spreads[turn.lo]) : offsetOf(cur)}px)`,
           transition: turn ? undefined : "transform .45s cubic-bezier(.2,.7,.2,1)",
         }}
@@ -413,7 +495,6 @@ export function BookStage({
           <div className="absolute top-0 left-0 overflow-hidden" style={{ width: pw, height: ph }}>
             {page(staticLeft)}
             {staticLeft !== null && gutter("left", !turn && staticRight === null)}
-            <div ref={castLeftRef} aria-hidden className="pointer-events-none absolute inset-y-0 right-0 z-[2] origin-right opacity-0" style={{ width: 40, background: "linear-gradient(to left, rgba(0,0,0,.38), rgba(0,0,0,0))", marginRight: 0, transformOrigin: "right" }} />
           </div>
         )}
 
@@ -421,45 +502,34 @@ export function BookStage({
         <div className="absolute top-0 overflow-hidden" style={{ left: twoUp ? pw : 0, width: pw, height: ph }}>
           {page(staticRight)}
           {staticRight !== null && twoUp && gutter("right", !turn && staticLeft === null)}
-          <div ref={castRightRef} aria-hidden className="pointer-events-none absolute inset-y-0 left-0 z-[2] opacity-0" style={{ width: 40, background: "linear-gradient(to right, rgba(0,0,0,.38), rgba(0,0,0,0))" }} />
         </div>
 
-        {/* 넘어가는 장 */}
+        {/* 넘어가는 장 — 오른쪽 쪽 자리에 두고, 말린 부분은 책 밖으로도 나갈 수 있게 overflow는 열어 둔다 */}
         {turn && (
-          <div
-            ref={leafRef}
-            className="absolute top-0 z-[3]"
-            style={{
-              left: twoUp ? pw : 0,
-              width: pw,
-              height: ph,
-              transformOrigin: "left center",
-              transformStyle: "preserve-3d",
-              transform: `rotateY(${angleRef.current}deg)`,
-              willChange: "transform",
-            }}
-          >
-            {/* 앞면 */}
-            <div className="absolute inset-0 overflow-hidden" style={{ backfaceVisibility: "hidden", boxShadow: "0 0 18px rgba(0,0,0,.18)" }}>
+          <div className="pointer-events-none absolute top-0 z-[3]" style={{ left: twoUp ? pw : 0, width: pw, height: ph }}>
+            {/* 드러난 다음 쪽 위, 접힌 선 바로 옆 그림자 */}
+            <div ref={underRef} aria-hidden className="absolute inset-0" style={{ clipPath: toClip([]) }}>
+              <div ref={underShadeRef} className="absolute top-0 left-0 origin-top-left" style={{ background: "linear-gradient(to right, rgba(0,0,0,.42), rgba(0,0,0,.12) 45%, rgba(0,0,0,0))" }} />
+            </div>
+            {/* 앞면: 접힌 선 안쪽만 */}
+            <div ref={frontRef} className="absolute inset-0 overflow-hidden" style={{ background: book.theme.background }}>
               {page(leafFront)}
               {twoUp && gutter("right")}
-              <div
-                ref={shadeFrontRef}
-                aria-hidden
-                className="pointer-events-none absolute inset-0 z-[2] opacity-0"
-                style={{ background: "linear-gradient(to right, rgba(0,0,0,.28) 0%, rgba(0,0,0,.06) 35%, rgba(255,255,255,.10) 70%, rgba(0,0,0,.30) 100%)" }}
-              />
             </div>
-            {/* 뒷면 (거울처럼 뒤집어 붙인다) */}
-            <div className="absolute inset-0 overflow-hidden" style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)", background: book.theme.background, boxShadow: "0 0 18px rgba(0,0,0,.18)" }}>
-              {page(leafBack)}
-              {twoUp && gutter("left")}
-              <div
-                ref={shadeBackRef}
-                aria-hidden
-                className="pointer-events-none absolute inset-0 z-[2] opacity-0"
-                style={{ background: "linear-gradient(to left, rgba(0,0,0,.28) 0%, rgba(0,0,0,.06) 35%, rgba(255,255,255,.10) 70%, rgba(0,0,0,.30) 100%)" }}
-              />
+            {/* 말린 뒷면: 접힌 선에 반사해 그린다 */}
+            <div ref={backWrapRef} className="absolute inset-0" style={{ filter: "drop-shadow(0 0 10px rgba(0,0,0,.28))" }}>
+              <div ref={backClipRef} className="absolute inset-0" style={{ clipPath: toClip([]) }}>
+                <div ref={backPageRef} className="absolute top-0 left-0 overflow-hidden" style={{ width: pw, height: ph, transformOrigin: "0 0", background: book.theme.background }}>
+                  {page(leafBack)}
+                  {twoUp && gutter("left")}
+                </div>
+                <div
+                  ref={backShadeRef}
+                  aria-hidden
+                  className="absolute top-0 left-0 origin-top-left"
+                  style={{ background: "linear-gradient(to left, rgba(0,0,0,.22), rgba(255,255,255,.35) 12%, rgba(255,255,255,.08) 45%, rgba(0,0,0,.10))" }}
+                />
+              </div>
             </div>
           </div>
         )}
