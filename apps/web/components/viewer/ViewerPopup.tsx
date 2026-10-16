@@ -21,7 +21,7 @@ export function ViewerPopup({ content, onClose, slug }: { content: PopupContent;
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/65 p-4 text-ink backdrop-blur-sm" onClick={onClose}>
       <div
-        className={`relative max-h-[90dvh] w-full overflow-auto rounded-2xl bg-white shadow-2xl ${content.kind === "video" ? "max-w-4xl bg-black" : content.kind === "player" ? "max-w-4xl bg-[#15131d]" : content.kind === "info" && (content.images?.length || content.image) && !content.video ? "max-w-5xl" : "max-w-lg"}`}
+        className={`${content.kind === "video" || content.kind === "player" ? "eb-scroll-dark" : "eb-scroll"} relative max-h-[90dvh] w-full overflow-auto rounded-2xl bg-white shadow-2xl ${content.kind === "video" ? "max-w-4xl bg-black" : content.kind === "player" ? "max-w-4xl bg-[#15131d]" : content.kind === "info" && (content.images?.length || content.image) && !content.video ? "max-w-5xl" : "max-w-lg"}`}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal

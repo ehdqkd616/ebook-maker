@@ -56,7 +56,7 @@ export function ViewerSidebar({
           <X className="size-4" />
         </button>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+      <div className="eb-scroll-dark min-h-0 flex-1 overflow-y-auto p-3">
         {tab === "thumbs" && <Thumbs book={book} current={current} onGo={onGo} />}
         {tab === "toc" && (
           <ol className="flex flex-col">

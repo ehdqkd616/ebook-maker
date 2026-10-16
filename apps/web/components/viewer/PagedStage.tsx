@@ -133,7 +133,7 @@ export function ScrollStage({
   }, [book, scale]);
 
   return (
-    <div ref={rootRef} className="h-full w-full overflow-y-auto">
+    <div ref={rootRef} className="eb-scroll-dark h-full w-full overflow-y-auto">
       <div className="flex flex-col items-center gap-6 py-6">
         {book.pages.map((p, i) => (
           <div key={p.id} data-page-index={i} className="relative shadow-[0_20px_60px_-20px_rgba(0,0,0,.6)]">

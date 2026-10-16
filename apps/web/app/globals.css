@@ -79,3 +79,20 @@ body {
 .eb-scrubber::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; margin-top: -5px; border-radius: 99px; background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,.4); transition: transform .15s; }
 .eb-scrubber::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 99px; background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,.4); }
 .eb-scrubber:hover::-webkit-slider-thumb, .eb-scrubber:active::-webkit-slider-thumb { transform: scale(1.25); }
+
+/* 얇은 스크롤바 — 화살표 없이 둥근 막대만. eb-scroll-dark는 어두운 화면(뷰어 사이드바 등), eb-scroll은 밝은 화면 */
+.eb-scroll, .eb-scroll-dark { scrollbar-gutter: stable; }
+.eb-scroll::-webkit-scrollbar, .eb-scroll-dark::-webkit-scrollbar { width: 10px; height: 10px; }
+.eb-scroll::-webkit-scrollbar-track, .eb-scroll-dark::-webkit-scrollbar-track { background: transparent; }
+.eb-scroll::-webkit-scrollbar-button, .eb-scroll-dark::-webkit-scrollbar-button { display: none; }
+.eb-scroll::-webkit-scrollbar-corner, .eb-scroll-dark::-webkit-scrollbar-corner { background: transparent; }
+.eb-scroll::-webkit-scrollbar-thumb, .eb-scroll-dark::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 99px; background-clip: padding-box; }
+.eb-scroll::-webkit-scrollbar-thumb { background-color: rgba(0,0,0,.18); }
+.eb-scroll::-webkit-scrollbar-thumb:hover { background-color: rgba(0,0,0,.32); }
+.eb-scroll-dark::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,.18); }
+.eb-scroll-dark::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,.34); }
+/* ::-webkit-scrollbar를 모르는 브라우저(Firefox) */
+@supports not selector(::-webkit-scrollbar) {
+  .eb-scroll { scrollbar-width: thin; scrollbar-color: rgba(0,0,0,.22) transparent; }
+  .eb-scroll-dark { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.22) transparent; }
+}

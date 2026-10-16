@@ -50,7 +50,7 @@ export function ReaderMode({ book, current, onClose, onGo }: { book: Book; curre
         <button type="button" className="rounded-xl bg-black/[0.05] px-3 py-1.5 text-sm hover:bg-black/[0.08]" onClick={() => setSerif((s) => !s)}>{serif ? "명조" : "고딕"}</button>
         <button type="button" className="grid size-9 place-items-center rounded-xl hover:bg-black/[0.06]" onClick={onClose} aria-label="닫기"><X className="size-5" /></button>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="eb-scroll min-h-0 flex-1 overflow-y-auto">
         <article
           className="mx-auto max-w-2xl px-6 py-10"
           style={{ fontSize: SIZES[size], lineHeight: 1.85, fontFamily: serif ? "'Noto Serif KR', 'Nanum Myeongjo', serif" : "'Pretendard Variable', Pretendard, sans-serif" }}
