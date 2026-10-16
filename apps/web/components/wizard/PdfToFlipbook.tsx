@@ -9,6 +9,7 @@ import { firstPageSize, MAX_PDF_PAGES, openPdf, pdfExtras, renderPdfPages } from
 import type { PdfTextBox } from "@/lib/import/pdf-text";
 import { installTextMeasurer } from "@/lib/measure";
 import { uploadBlob } from "@/lib/upload";
+import { alertDialog } from "@/lib/dialog";
 
 // "PDF 그대로 플립북" — FlipHTML5의 기본 기능. 각 쪽을 이미지로 그려 올리고, 원본 비율 그대로 책을 만든다.
 // 변환은 브라우저에서 하므로 PDF 파일 자체는 서버에 남지 않는다.
@@ -81,8 +82,8 @@ export function PdfToFlipbook({ title }: { title: string }) {
         textBoxes: mode === "text" ? textBoxes : undefined,
       });
       const { id } = await api<{ id: string }>("/api/books", { body: { doc: book } });
+      if (doc.numPages > MAX_PDF_PAGES) await alertDialog(`PDF가 ${doc.numPages}쪽이라 앞의 ${MAX_PDF_PAGES}쪽까지만 가져왔어요.`);
       router.push(`/books/${id}/edit`);
-      if (doc.numPages > MAX_PDF_PAGES) alert(`앞의 ${MAX_PDF_PAGES}쪽까지만 가져왔어요.`);
     } catch (e) {
       setProgress(null);
       setError(e instanceof ApiError || e instanceof Error ? e.message : "PDF를 변환하지 못했어요.");

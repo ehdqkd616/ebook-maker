@@ -16,6 +16,7 @@ import {
 import { reorderBlock, setStyle, updateBlock } from "./ops";
 import { IconSection, PlayerSection } from "./PlayerEditor";
 import { BG_PRESETS } from "@/components/viewer/backgrounds";
+import { confirmDialog } from "@/lib/dialog";
 
 // 속성 패널 추가 부분 — 멀티미디어 블록 편집, 동작(클릭 시), 애니메이션, 모양(테두리·그림자),
 // 레이어 목록, 뷰어 설정
@@ -598,7 +599,7 @@ function TocEditor({ book, update }: { book: Book; update: Update }) {
       title="뷰어 목차"
       right={
         toc ? (
-          <button type="button" className="text-xs text-neutral-500 underline" onClick={() => confirm("직접 만든 목차를 지우고 챕터 제목으로 자동 목차를 쓸까요?") && setToc(undefined)}>자동으로</button>
+          <button type="button" className="text-xs text-neutral-500 underline" onClick={async () => (await confirmDialog("직접 만든 목차를 지우고 챕터 제목으로 자동 목차를 쓸까요?", { confirmText: "자동 목차 쓰기" })) && setToc(undefined)}>자동으로</button>
         ) : undefined
       }
     >

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { fmtDate } from "@/lib/format";
+import { confirmDialog } from "@/lib/dialog";
 
 // 퍼블리시·공유 (SPEC 10): 지금 편집본을 공개본으로 복사 → 주소·QR·임베드 코드
 
@@ -66,7 +67,7 @@ export function PublishDialog({
   }
 
   async function unpublish() {
-    if (!confirm("공개를 중지하면 지금 주소로 더는 볼 수 없어요. 다시 퍼블리시하면 새 주소가 만들어집니다. 계속할까요?")) return;
+    if (!(await confirmDialog("공개를 중지하면 지금 주소로 더는 볼 수 없어요. 다시 퍼블리시하면 새 주소가 만들어집니다.", { title: "공개를 중지할까요?", confirmText: "공개 중지", danger: true }))) return;
     setBusy(true);
     try {
       await api(`/api/books/${bookId}/publish`, { method: "DELETE" });

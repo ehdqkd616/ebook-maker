@@ -38,6 +38,7 @@ import { ShareDialog } from "./ShareDialog";
 import { playFlipSound } from "./sound";
 import { ViewerPopup, type PopupContent } from "./ViewerPopup";
 import { ViewerSidebar, type SidebarTab } from "./ViewerSidebar";
+import { confirmDialog } from "@/lib/dialog";
 
 // 플립북 뷰어 — FlipHTML5·Heyzine·Flipsnack 뷰어에서 공통으로 보이는 기능:
 // 책장 넘김/슬라이드/스크롤, 썸네일·목차·검색·책갈피, 확대·이동, 자동 넘김, 넘김 소리·배경 음악,
@@ -494,7 +495,7 @@ export function Viewer({ book, slug, backHref, embed = false, initialPage }: Vie
       {/* 아래 도구 막대 */}
       {drawing && (
         <div className="pointer-events-none absolute inset-x-0 bottom-[76px] z-30 flex justify-center px-2">
-          <InkPalette tool={inkTool} setTool={setInkTool} onUndo={undoInk} onClear={() => confirm("보이는 쪽의 판서를 모두 지울까요?") && clearPages(visiblePages)} onClose={() => setDrawing(false)} />
+          <InkPalette tool={inkTool} setTool={setInkTool} onUndo={undoInk} onClear={async () => (await confirmDialog("지금 보이는 쪽에 그린 판서가 모두 지워져요.", { title: "판서를 지울까요?", confirmText: "모두 지우기", danger: true })) && clearPages(visiblePages)} onClose={() => setDrawing(false)} />
         </div>
       )}
       {btn.slider && settings.mode !== "scroll" && total > 2 && !drawing && (

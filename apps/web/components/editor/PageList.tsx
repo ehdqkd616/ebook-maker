@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 import { createPage, LAYOUT_LIST } from "@ebook/layouts";
 import type { Book, LayoutId } from "@ebook/schema";
 import { PageThumb } from "@/components/PageThumb";
+import { confirmDialog } from "@/lib/dialog";
 
 // 왼쪽 페이지 목록: 썸네일 클릭으로 이동, 끌어서 순서 바꾸기, 복제·삭제, 레이아웃을 골라 새 페이지 추가
 
@@ -77,7 +78,7 @@ export function PageList({
               <IconButton label="위로" disabled={i === 0} onClick={() => onMove(i, i - 1)}>↑</IconButton>
               <IconButton label="아래로" disabled={i === book.pages.length - 1} onClick={() => onMove(i, i + 1)}>↓</IconButton>
               <IconButton label="복제" onClick={() => onDuplicate(i)}>⧉</IconButton>
-              <IconButton label="삭제" disabled={book.pages.length <= 1} onClick={() => confirm(`${i + 1}쪽을 삭제할까요?`) && onDelete(i)}>✕</IconButton>
+              <IconButton label="삭제" disabled={book.pages.length <= 1} onClick={async () => (await confirmDialog("되돌리기(Ctrl+Z)로 다시 살릴 수 있어요.", { title: `${i + 1}쪽을 삭제할까요?`, confirmText: "삭제", danger: true })) && onDelete(i)}>✕</IconButton>
             </div>
             {dropAt === i + 1 && i === book.pages.length - 1 && <div className="absolute right-2 -bottom-1 left-2 h-0.5 rounded bg-brand-600" />}
           </li>

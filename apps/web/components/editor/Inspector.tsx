@@ -16,6 +16,7 @@ import { PageThumb } from "@/components/PageThumb";
 import { blockText, withText } from "./Canvas";
 import { deleteBlock, duplicateBlock, reorderBlock, setStyle, updateBlock, updatePage } from "./ops";
 import { ActionSection, AnimationSection, AppearanceSection, LayersList, LockHide, MediaSections, ViewerPanel } from "./InspectorExtras";
+import { confirmDialog } from "@/lib/dialog";
 
 type Update = (fn: (b: Book) => Book, mergeKey?: string) => void;
 export type InspectorTab = "block" | "page" | "book" | "viewer";
@@ -434,7 +435,7 @@ function BookPanel({ book, update }: { book: Book; update: Update }) {
           onChange={(e) => {
             if (e.target.value === "CUSTOM") return;
             const preset = e.target.value as SizePreset;
-            if (confirm("책 크기를 바꾸면 모든 블록 위치가 비율대로 바뀝니다. 계속할까요?")) update((bk) => resizeBook(bk, preset));
+            void confirmDialog("책 크기를 바꾸면 모든 블록 위치가 비율대로 바뀝니다.", { title: "책 크기를 바꿀까요?", confirmText: "바꾸기" }).then((ok) => ok && update((bk) => resizeBook(bk, preset)));
           }}
         >
           {book.size.preset === "CUSTOM" && <option value="CUSTOM">원본 비율 ({book.size.width}×{book.size.height})</option>}

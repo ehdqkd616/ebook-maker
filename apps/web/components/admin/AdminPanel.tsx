@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { CREDIT_REASON, fmtDate, STATUS_LABEL, STATUS_STYLE } from "@/lib/format";
 import type { AdminUser } from "@/lib/server/admin";
+import { confirmDialog, promptDialog } from "@/lib/dialog";
 
 export type AdminTab = "dashboard" | "users" | "books" | "audit";
 
@@ -215,25 +216,26 @@ function Users({ initialStatus, currentUserId }: { initialStatus: string; curren
                   checked={selected.has(u.id)} onCheck={() => toggle(u.id)}
                   onToggleOpen={() => setOpenId(openId === u.id ? null : u.id)}
                   onApprove={() => act(() => post(u, "approve"), `${u.name} 님을 승인했습니다.`)}
-                  onReject={() => {
-                    const reason = window.prompt(`${u.name} 님의 가입을 거절합니다. 사유 (선택, 회원에게 표시됨)`);
+                  onReject={async () => {
+                    const reason = await promptDialog("사유는 선택이고, 회원에게 표시돼요.", { title: `${u.name} 님의 가입을 거절할까요?`, placeholder: "거절 사유 (선택)", confirmText: "거절", danger: true });
                     if (reason !== null) act(() => post(u, "reject", { reason }), `${u.name} 님의 가입을 거절했습니다.`);
                   }}
-                  onSuspend={() => window.confirm(`${u.name} 님을 정지할까요? 즉시 로그아웃됩니다.`) && act(() => post(u, "suspend"), `${u.name} 님을 정지했습니다.`)}
+                  onSuspend={async () => (await confirmDialog("정지하면 즉시 로그아웃돼요.", { title: `${u.name} 님을 정지할까요?`, confirmText: "정지", danger: true })) && act(() => post(u, "suspend"), `${u.name} 님을 정지했습니다.`)}
                   onUnsuspend={() => act(() => post(u, "unsuspend"), `${u.name} 님의 정지를 해제했습니다.`)}
-                  onTempPassword={() => {
-                    if (!window.confirm(`${u.name} 님의 비밀번호를 임시 비밀번호로 바꿀까요? 기존 세션은 모두 종료됩니다.`)) return;
+                  onTempPassword={async () => {
+                    if (!(await confirmDialog("기존 세션은 모두 종료돼요.", { title: `${u.name} 님의 비밀번호를 임시 비밀번호로 바꿀까요?`, confirmText: "바꾸기", danger: true }))) return;
                     act(async () => {
                       const { tempPassword } = await post(u, "temp-password") as { tempPassword: string };
                       setMsg({ ok: true, text: `임시 비밀번호: ${tempPassword}  (지금 한 번만 표시됩니다. 회원에게 전달하세요.)` });
                     });
                   }}
-                  onCredits={() => {
-                    const raw = window.prompt(`${u.name} 님에게 지급할 크레딧 (회수는 음수, 예: 500 / -200)`);
+                  onCredits={async () => {
+                    const raw = await promptDialog("회수는 음수로 입력하세요. 예: 500 / -200", { title: `${u.name} 님 크레딧 지급`, placeholder: "크레딧", confirmText: "다음" });
                     if (!raw) return;
                     const delta = Number(raw);
                     if (!Number.isInteger(delta) || delta === 0) return setMsg({ ok: false, text: "0이 아닌 정수를 입력하세요." });
-                    const memo = window.prompt("메모 (선택)") ?? "";
+                    const memo = (await promptDialog("관리 기록에 남아요.", { title: "메모 (선택)", placeholder: "메모", confirmText: "지급" }));
+                    if (memo === null) return;
                     act(() => post(u, "credits", { delta, memo }), `${u.name} 님 크레딧 ${delta > 0 ? "+" : ""}${delta}`);
                   }}
                 />
